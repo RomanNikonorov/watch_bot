@@ -2,7 +2,7 @@ package bots
 
 import "log"
 
-func ProduceBot(settings BotSettings) {
+func CreateBot(settings BotSettings) {
 	var bot WatchBot
 	switch settings.BotType {
 	case "vk":

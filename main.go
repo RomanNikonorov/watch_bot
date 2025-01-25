@@ -3,8 +3,9 @@ package main
 import (
 	"log"
 	"os"
-	"sync"
+	"time"
 	"watch_bot/bots"
+	"watch_bot/watch"
 )
 
 func main() {
@@ -14,30 +15,34 @@ func main() {
 	mainChatId := os.Getenv("MAIN_CHAT_ID")
 	botType := os.Getenv("BOT_TYPE")
 
-	messagesChannel := make(chan bots.Message)
+	botMessagesChannel := make(chan bots.Message)
+	watchDogStatusChannel := make(chan watch.LivenessStatus)
 	settings := bots.BotSettings{
 		BotToken:        botToken,
 		BotApiUrl:       botApiUrl,
 		MainChatId:      mainChatId,
 		BotType:         botType,
-		MessagesChannel: messagesChannel,
+		MessagesChannel: botMessagesChannel,
 	}
 
 	connectionStr := os.Getenv("CONNECTION_STR")
-	_, err := readFromDatabase(connectionStr)
+	servers, err := getServers(connectionStr)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(1)
+	watchTowerLivenessChannelsMap := make(map[string]chan string)
+	bots.CreateBot(settings)
+	botMessagesChannel <- bots.Message{ChatId: mainChatId, Text: "WatchBot is on duty"}
+	for _, server := range servers {
+		watchTowerLivenessChannelsMap[server.Name] = make(chan string)
+		go watch.Dog(server, botMessagesChannel, mainChatId, watchTowerLivenessChannelsMap[server.Name], watchDogStatusChannel)
+	}
 
-	go func() {
-		bots.ProduceBot(settings)
-	}()
-
-	messagesChannel <- bots.Message{ChatId: mainChatId, Text: "Hello, world!!!"}
-
-	wg.Wait()
-
+	for {
+		time.Sleep(1 * time.Second)
+		for _, server := range servers {
+			watchTowerLivenessChannelsMap[server.Name] <- server.Name
+		}
+	}
 }

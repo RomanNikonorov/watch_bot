@@ -4,9 +4,11 @@ import (
 	"database/sql"
 	"fmt"
 	_ "github.com/lib/pq"
+
+	"watch_bot/watch"
 )
 
-func readFromDatabase(connStr string) ([]Server, error) {
+func getServers(connStr string) ([]watch.Server, error) {
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
@@ -30,9 +32,9 @@ func readFromDatabase(connStr string) ([]Server, error) {
 		}
 	}(rows)
 
-	var servers []Server
+	var servers []watch.Server
 	for rows.Next() {
-		var server Server
+		var server watch.Server
 		if err := rows.Scan(&server.Name, &server.URL); err != nil {
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
