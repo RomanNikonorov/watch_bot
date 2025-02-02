@@ -25,7 +25,7 @@ jobs:
         run: go test ./...
 
       - name: Build application
-        run: go build -o watch_bot main.go
+        run: go build -ldflags="-s -w" -o watch_bot .
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
