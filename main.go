@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"strconv"
 	"time"
 	"watch_bot/bots"
 	"watch_bot/watch"
@@ -14,6 +15,7 @@ func main() {
 	botApiUrl := os.Getenv("BOT_API_URL")
 	mainChatId := os.Getenv("MAIN_CHAT_ID")
 	botType := os.Getenv("BOT_TYPE")
+	probeDelayStr := os.Getenv("PROBE_DELAY")
 
 	botMessagesChannel := make(chan bots.Message)
 	watchDogStatusChannel := make(chan watch.LivenessStatus)
@@ -39,8 +41,13 @@ func main() {
 		go watch.Dog(server, botMessagesChannel, mainChatId, watchTowerLivenessChannelsMap[server.Name], watchDogStatusChannel)
 	}
 
+	probeDelay, err := strconv.Atoi(probeDelayStr)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	for {
-		time.Sleep(1 * time.Second)
+		time.Sleep(time.Duration(probeDelay) * time.Second)
 		for _, server := range servers {
 			watchTowerLivenessChannelsMap[server.Name] <- server.Name
 		}
