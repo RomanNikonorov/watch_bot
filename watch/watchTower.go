@@ -1,6 +1,7 @@
 package watch
 
 import (
+	"crypto/tls"
 	"log"
 	"net/http"
 	"time"
@@ -49,7 +50,11 @@ func waitForWakeUp(url string, isALive *bool, messagesChannel chan bots.Message,
 }
 
 func isUrlOk(url string) bool {
-	resp, err := http.Get(url)
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{Transport: tr}
+	resp, err := client.Get(url)
 	if err != nil {
 		log.Printf("failed to get URL: %v", err)
 		return false
