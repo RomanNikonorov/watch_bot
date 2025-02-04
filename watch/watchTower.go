@@ -1,9 +1,6 @@
 package watch
 
 import (
-	"crypto/tls"
-	"log"
-	"net/http"
 	"time"
 	"watch_bot/bots"
 )
@@ -13,61 +10,44 @@ type Server struct {
 	URL  string
 }
 
-func Dog(server Server, messagesChannel chan bots.Message, chatId string, livenessChannel chan string, statusChannel chan LivenessStatus) {
+func Dog(server Server, messagesChannel chan bots.Message, chatId string, livenessChannel chan string, unhealthyThreshold int, checker URLChecker) {
 	isAlive := true
+	deadCounter := 0
+
 	for message := range livenessChannel {
 		if message != server.Name {
 			continue
 		}
 		// if we think server is alive and it is really alive
-		if isAlive && isUrlOk(server.URL) {
+		if isAlive && checker.IsUrlOk(server.URL) {
 			// do nothing
 			continue
 		}
 		// if we think server is alive, but it is not
+		isAlive = isAlive || deadCounter == unhealthyThreshold
+		deadCounter += 1
 		if isAlive {
 			// mark server as not alive
 			isAlive = false
 			// start goroutine to wait it to wake up
-			go waitForWakeUp(server.URL, &isAlive, messagesChannel, chatId, server.Name)
+			go waitForWakeUp(server.URL, &isAlive, &deadCounter, messagesChannel, chatId, server.Name, checker)
 			// notify about server is not OK
 			messagesChannel <- bots.Message{ChatId: chatId, Text: server.Name + " is not OK"}
 		}
 	}
 }
 
-func waitForWakeUp(url string, isALive *bool, messagesChannel chan bots.Message, chatId string, name string) {
+func waitForWakeUp(url string, isALive *bool, deadCounter *int, messagesChannel chan bots.Message, chatId string, name string, checker URLChecker) {
 	for i := 0; i < 10; i++ {
-		time.Sleep(1 * time.Second)
-		if isUrlOk(url) {
+		time.Sleep(5 * time.Second)
+		if checker.IsUrlOk(url) {
 			*isALive = true
+			*deadCounter = 0
 			messagesChannel <- bots.Message{ChatId: chatId, Text: name + " is OK now"}
 			return
 		}
 	}
 	*isALive = true
+	*deadCounter = 0
 	messagesChannel <- bots.Message{ChatId: chatId, Text: name + " is really not OK"}
-}
-
-func isUrlOk(url string) bool {
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
-	client := &http.Client{Transport: tr}
-	resp, err := client.Get(url)
-	if err != nil {
-		log.Printf("failed to get URL: %v", err)
-		return false
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return false
-	}
-	return true
-}
-
-type LivenessStatus struct {
-	ServerName string
-	IsOk       bool
 }

@@ -15,10 +15,26 @@ func main() {
 	botApiUrl := os.Getenv("BOT_API_URL")
 	mainChatId := os.Getenv("MAIN_CHAT_ID")
 	botType := os.Getenv("BOT_TYPE")
+
 	probeDelayStr := os.Getenv("PROBE_DELAY")
+	if probeDelayStr == "" {
+		probeDelayStr = "5" // default value
+	}
+	probeDelay, err := strconv.Atoi(probeDelayStr)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	unhealthyThresholdStr := os.Getenv("UNHEALTHY_THRESHOLD")
+	if unhealthyThresholdStr == "" {
+		unhealthyThresholdStr = "3" // default value
+	}
+	unhealthyThreshold, err := strconv.Atoi(unhealthyThresholdStr)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	botMessagesChannel := make(chan bots.Message)
-	watchDogStatusChannel := make(chan watch.LivenessStatus)
 	settings := bots.BotSettings{
 		BotToken:        botToken,
 		BotApiUrl:       botApiUrl,
@@ -38,12 +54,7 @@ func main() {
 	botMessagesChannel <- bots.Message{ChatId: mainChatId, Text: "WatchBot is on duty"}
 	for _, server := range servers {
 		watchTowerLivenessChannelsMap[server.Name] = make(chan string)
-		go watch.Dog(server, botMessagesChannel, mainChatId, watchTowerLivenessChannelsMap[server.Name], watchDogStatusChannel)
-	}
-
-	probeDelay, err := strconv.Atoi(probeDelayStr)
-	if err != nil {
-		log.Fatal(err)
+		go watch.Dog(server, botMessagesChannel, mainChatId, watchTowerLivenessChannelsMap[server.Name], unhealthyThreshold, watch.RealURLChecker{})
 	}
 
 	for {
