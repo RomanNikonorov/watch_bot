@@ -23,6 +23,7 @@ func TestDog(t *testing.T) {
 		server             Server
 		livenessMessages   []string
 		unhealthyThreshold int
+		deadProbeDelay     int
 		expectedMessages   []string
 		urlResponses       []bool
 	}{
@@ -34,6 +35,7 @@ func TestDog(t *testing.T) {
 			},
 			livenessMessages:   []string{"TestServer", "TestServer"},
 			unhealthyThreshold: 1,
+			deadProbeDelay:     2,
 			expectedMessages:   []string{"TestServer is not OK"},
 			urlResponses:       []bool{false, false},
 		},
@@ -45,6 +47,7 @@ func TestDog(t *testing.T) {
 			},
 			livenessMessages:   []string{"TestServer", "TestServer"},
 			unhealthyThreshold: 1,
+			deadProbeDelay:     2,
 			expectedMessages:   []string{},
 			urlResponses:       []bool{true, true},
 		},
@@ -56,8 +59,9 @@ func TestDog(t *testing.T) {
 			},
 			livenessMessages:   []string{"TestServer", "TestServer", "TestServer"},
 			unhealthyThreshold: 2,
+			deadProbeDelay:     3,
 			expectedMessages:   []string{"TestServer is not OK"},
-			urlResponses:       []bool{false, false, false},
+			urlResponses:       []bool{false, false, false, false},
 		},
 	}
 
@@ -67,7 +71,7 @@ func TestDog(t *testing.T) {
 			livenessChannel := make(chan string, len(tt.livenessMessages))
 			checker := &MockURLChecker{responses: tt.urlResponses}
 
-			go Dog(tt.server, messagesChannel, "12345", livenessChannel, tt.unhealthyThreshold, checker)
+			go Dog(tt.server, messagesChannel, "12345", livenessChannel, tt.unhealthyThreshold, tt.deadProbeDelay, checker)
 
 			for _, msg := range tt.livenessMessages {
 				livenessChannel <- msg

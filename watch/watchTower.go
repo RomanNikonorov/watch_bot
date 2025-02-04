@@ -10,7 +10,7 @@ type Server struct {
 	URL  string
 }
 
-func Dog(server Server, messagesChannel chan bots.Message, chatId string, livenessChannel chan string, unhealthyThreshold int, checker URLChecker) {
+func Dog(server Server, messagesChannel chan bots.Message, chatId string, livenessChannel chan string, unhealthyThreshold int, deadProbeDelay int, checker URLChecker) {
 	isAlive := true
 	deadCounter := 0
 
@@ -24,22 +24,25 @@ func Dog(server Server, messagesChannel chan bots.Message, chatId string, livene
 			continue
 		}
 		// if we think server is alive, but it is not
-		isAlive = isAlive || deadCounter == unhealthyThreshold
-		deadCounter += 1
 		if isAlive {
+			if deadCounter < unhealthyThreshold {
+				// increase dead counter
+				deadCounter++
+				continue
+			}
 			// mark server as not alive
 			isAlive = false
 			// start goroutine to wait it to wake up
-			go waitForWakeUp(server.URL, &isAlive, &deadCounter, messagesChannel, chatId, server.Name, checker)
+			go waitForWakeUp(server.URL, &isAlive, &deadCounter, messagesChannel, chatId, server.Name, checker, deadProbeDelay)
 			// notify about server is not OK
 			messagesChannel <- bots.Message{ChatId: chatId, Text: server.Name + " is not OK"}
 		}
 	}
 }
 
-func waitForWakeUp(url string, isALive *bool, deadCounter *int, messagesChannel chan bots.Message, chatId string, name string, checker URLChecker) {
+func waitForWakeUp(url string, isALive *bool, deadCounter *int, messagesChannel chan bots.Message, chatId string, name string, checker URLChecker, deadProbeDelay int) {
 	for i := 0; i < 10; i++ {
-		time.Sleep(5 * time.Second)
+		time.Sleep(time.Duration(deadProbeDelay) * time.Second)
 		if checker.IsUrlOk(url) {
 			*isALive = true
 			*deadCounter = 0
@@ -47,7 +50,8 @@ func waitForWakeUp(url string, isALive *bool, deadCounter *int, messagesChannel 
 			return
 		}
 	}
+	messagesChannel <- bots.Message{ChatId: chatId, Text: name + " is really not OK, pause for " + string(rune(deadProbeDelay)) + " minutes"}
+	time.Sleep(time.Duration(deadProbeDelay) * time.Minute)
 	*isALive = true
 	*deadCounter = 0
-	messagesChannel <- bots.Message{ChatId: chatId, Text: name + " is really not OK"}
 }
