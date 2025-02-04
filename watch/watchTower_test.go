@@ -48,6 +48,17 @@ func TestDog(t *testing.T) {
 			expectedMessages:   []string{},
 			urlResponses:       []bool{true, true},
 		},
+		{
+			name: "Server becomes unhealthy after three checks",
+			server: Server{
+				Name: "TestServer",
+				URL:  "http://example.com",
+			},
+			livenessMessages:   []string{"TestServer", "TestServer", "TestServer"},
+			unhealthyThreshold: 2,
+			expectedMessages:   []string{"TestServer is not OK"},
+			urlResponses:       []bool{false, false, false},
+		},
 	}
 
 	for _, tt := range tests {
