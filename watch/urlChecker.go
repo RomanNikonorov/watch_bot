@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"log"
 	"net/http"
+	"time"
 )
 
 type URLChecker interface {
@@ -17,6 +18,21 @@ func (r RealURLChecker) IsUrlOk(url string, unhealthyThreshold int, unhealthyDel
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 	client := &http.Client{Transport: tr}
+	status := checkURLOnce(url, client)
+
+	if !status {
+		for i := 0; i < unhealthyThreshold; i++ {
+			time.Sleep(time.Duration(unhealthyDelay) * time.Second)
+			status = checkURLOnce(url, client)
+			if status {
+				return true
+			}
+		}
+	}
+	return true
+}
+
+func checkURLOnce(url string, client *http.Client) bool {
 	resp, err := client.Get(url)
 	if err != nil {
 		log.Printf("failed to get URL: %v", err)
