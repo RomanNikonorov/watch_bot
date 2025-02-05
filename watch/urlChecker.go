@@ -7,12 +7,12 @@ import (
 )
 
 type URLChecker interface {
-	IsUrlOk(url string) bool
+	IsUrlOk(url string, unhealthyThreshold int, unhealthyDelay int) bool
 }
 
 type RealURLChecker struct{}
 
-func (r RealURLChecker) IsUrlOk(url string) bool {
+func (r RealURLChecker) IsUrlOk(url string, unhealthyThreshold int, unhealthyDelay int) bool {
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}

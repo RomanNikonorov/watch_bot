@@ -11,7 +11,7 @@ type MockURLChecker struct {
 	index     int
 }
 
-func (m *MockURLChecker) IsUrlOk(url string) bool {
+func (m *MockURLChecker) IsUrlOk(url string, unhealthyThreshold int, unhealthyDelay int) bool {
 	response := m.responses[m.index]
 	m.index++
 	return response
@@ -71,7 +71,15 @@ func TestDog(t *testing.T) {
 			livenessChannel := make(chan string, len(tt.livenessMessages))
 			checker := &MockURLChecker{responses: tt.urlResponses}
 
-			go Dog(tt.server, messagesChannel, "12345", livenessChannel, tt.unhealthyThreshold, tt.deadProbeDelay, checker)
+			config := DogConfig{
+				Server:             tt.server,
+				LivenessChannel:    livenessChannel,
+				MessagesChannel:    messagesChannel,
+				UnhealthyThreshold: tt.unhealthyThreshold,
+				DeadProbeDelay:     tt.deadProbeDelay,
+				Checker:            checker,
+			}
+			go Dog(config)
 
 			for _, msg := range tt.livenessMessages {
 				livenessChannel <- msg

@@ -27,7 +27,7 @@ func main() {
 
 	deadProbeDelayStr := os.Getenv("DEAD_PROBE_DELAY")
 	if deadProbeDelayStr == "" {
-		deadProbeDelayStr = "15" // default value
+		deadProbeDelayStr = "60" // default value
 	}
 	deadProbeDelay, err := strconv.Atoi(deadProbeDelayStr)
 	if err != nil {
@@ -39,6 +39,15 @@ func main() {
 		unhealthyThresholdStr = "3" // default value
 	}
 	unhealthyThreshold, err := strconv.Atoi(unhealthyThresholdStr)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	unhealthyDelayStr := os.Getenv("UNHEALTHY_DELAY")
+	if unhealthyDelayStr == "" {
+		unhealthyDelayStr = "2" // default value
+	}
+	unhealthyDelay, err := strconv.Atoi(unhealthyDelayStr)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -63,7 +72,17 @@ func main() {
 	botMessagesChannel <- bots.Message{ChatId: mainChatId, Text: "WatchBot is on duty"}
 	for _, server := range servers {
 		watchTowerLivenessChannelsMap[server.Name] = make(chan string)
-		go watch.Dog(server, botMessagesChannel, mainChatId, watchTowerLivenessChannelsMap[server.Name], unhealthyThreshold, deadProbeDelay, watch.RealURLChecker{})
+		config := watch.DogConfig{
+			Server:             server,
+			LivenessChannel:    watchTowerLivenessChannelsMap[server.Name],
+			MessagesChannel:    botMessagesChannel,
+			UnhealthyThreshold: unhealthyThreshold,
+			UnhealthyDelay:     unhealthyDelay,
+			DeadProbeDelay:     deadProbeDelay,
+			Checker:            watch.RealURLChecker{},
+			ChatId:             mainChatId,
+		}
+		go watch.Dog(config)
 	}
 
 	for {
