@@ -1,6 +1,7 @@
 package watch
 
 import (
+	"strconv"
 	"time"
 	"watch_bot/bots"
 )
@@ -35,7 +36,7 @@ func Dog(server Server, messagesChannel chan bots.Message, chatId string, livene
 			// start goroutine to wait it to wake up
 			go waitForWakeUp(server.URL, &isAlive, &deadCounter, messagesChannel, chatId, server.Name, checker, deadProbeDelay)
 			// notify about server is not OK
-			messagesChannel <- bots.Message{ChatId: chatId, Text: server.Name + " is not OK"}
+			messagesChannel <- bots.Message{ChatId: chatId, Text: "❌ " + server.Name + " is not responding ❌"}
 		}
 	}
 }
@@ -46,11 +47,11 @@ func waitForWakeUp(url string, isALive *bool, deadCounter *int, messagesChannel 
 		if checker.IsUrlOk(url) {
 			*isALive = true
 			*deadCounter = 0
-			messagesChannel <- bots.Message{ChatId: chatId, Text: name + " is OK now"}
+			messagesChannel <- bots.Message{ChatId: chatId, Text: "✅ " + name + " is back online ✅"}
 			return
 		}
 	}
-	messagesChannel <- bots.Message{ChatId: chatId, Text: name + " is really not OK, pause for " + string(rune(deadProbeDelay)) + " minutes"}
+	messagesChannel <- bots.Message{ChatId: chatId, Text: "❌❌❌ " + name + " is really not OK, pause for " + strconv.Itoa(deadProbeDelay) + " minutes ❌❌❌"}
 	time.Sleep(time.Duration(deadProbeDelay) * time.Minute)
 	*isALive = true
 	*deadCounter = 0

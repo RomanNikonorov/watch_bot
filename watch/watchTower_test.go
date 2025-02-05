@@ -36,7 +36,7 @@ func TestDog(t *testing.T) {
 			livenessMessages:   []string{"TestServer", "TestServer"},
 			unhealthyThreshold: 1,
 			deadProbeDelay:     2,
-			expectedMessages:   []string{"TestServer is not OK"},
+			expectedMessages:   []string{"❌ TestServer is not responding ❌"},
 			urlResponses:       []bool{false, false},
 		},
 		{
@@ -60,7 +60,7 @@ func TestDog(t *testing.T) {
 			livenessMessages:   []string{"TestServer", "TestServer", "TestServer"},
 			unhealthyThreshold: 2,
 			deadProbeDelay:     3,
-			expectedMessages:   []string{"TestServer is not OK"},
+			expectedMessages:   []string{"❌ TestServer is not responding ❌"},
 			urlResponses:       []bool{false, false, false, false},
 		},
 	}
