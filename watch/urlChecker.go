@@ -19,17 +19,17 @@ func (r RealURLChecker) IsUrlOk(url string, unhealthyThreshold int, unhealthyDel
 	}
 	client := &http.Client{Transport: tr}
 	status := checkURLOnce(url, client)
-
-	if !status {
-		for i := 0; i < unhealthyThreshold; i++ {
-			time.Sleep(time.Duration(unhealthyDelay) * time.Second)
-			status = checkURLOnce(url, client)
-			if status {
-				return true
-			}
+	if status {
+		return true
+	}
+	for i := 0; i < unhealthyThreshold; i++ {
+		time.Sleep(time.Duration(unhealthyDelay) * time.Second)
+		status = checkURLOnce(url, client)
+		if status {
+			return true
 		}
 	}
-	return true
+	return false
 }
 
 func checkURLOnce(url string, client *http.Client) bool {

@@ -8,7 +8,7 @@ RUN go mod download
 COPY . .
 RUN go build -ldflags="-s -w" -o watch_bot .
 
-FROM alpine
+FROM alpine:latest
 WORKDIR /build
 COPY --from=builder /build/watch_bot /build/watch_bot
 ENTRYPOINT ["./watch_bot"]
