@@ -11,7 +11,7 @@ type MockURLChecker struct {
 	index     int
 }
 
-func (m *MockURLChecker) IsUrlOk(url string, unhealthyThreshold int, unhealthyDelay int) bool {
+func (m *MockURLChecker) IsUrlOk(url string, unhealthyThreshold int, unhealthyDelay int, client HTTPClient) bool {
 	response := m.responses[m.index]
 	m.index++
 	return response

@@ -1,6 +1,8 @@
 package watch
 
 import (
+	"crypto/tls"
+	"net/http"
 	"strconv"
 	"time"
 	"watch_bot/bots"
@@ -25,12 +27,17 @@ type DogConfig struct {
 func Dog(config DogConfig) {
 	isAlive := true
 
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{Transport: tr}
+
 	for message := range config.LivenessChannel {
 		if message != config.Server.Name {
 			continue
 		}
 		// if we think server is alive and it is really alive
-		if isAlive && config.Checker.IsUrlOk(config.Server.URL, config.UnhealthyThreshold, config.UnhealthyDelay) {
+		if isAlive && config.Checker.IsUrlOk(config.Server.URL, config.UnhealthyThreshold, config.UnhealthyDelay, client) {
 			// do nothing
 			continue
 		}
@@ -39,17 +46,17 @@ func Dog(config DogConfig) {
 			// mark server as not alive
 			isAlive = false
 			// start goroutine to wait it to wake up
-			go waitForWakeUp(config, &isAlive)
+			go waitForWakeUp(config, &isAlive, client)
 			// notify about server is not OK
 			config.MessagesChannel <- bots.Message{ChatId: config.ChatId, Text: "❌ " + config.Server.Name + " is not responding ❌"}
 		}
 	}
 }
 
-func waitForWakeUp(config DogConfig, isALive *bool) {
+func waitForWakeUp(config DogConfig, isALive *bool, client HTTPClient) {
 	for i := 0; i < 10; i++ {
 		time.Sleep(time.Duration(config.DeadProbeDelay) * time.Second)
-		if config.Checker.IsUrlOk(config.Server.URL, config.UnhealthyThreshold, config.UnhealthyDelay) {
+		if config.Checker.IsUrlOk(config.Server.URL, config.UnhealthyThreshold, config.UnhealthyDelay, client) {
 			*isALive = true
 			config.MessagesChannel <- bots.Message{ChatId: config.ChatId, Text: "✅ " + config.Server.Name + " is back online ✅"}
 			return

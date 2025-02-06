@@ -1,23 +1,22 @@
 package watch
 
 import (
-	"crypto/tls"
 	"log"
 	"net/http"
 	"time"
 )
 
 type URLChecker interface {
-	IsUrlOk(url string, unhealthyThreshold int, unhealthyDelay int) bool
+	IsUrlOk(url string, unhealthyThreshold int, unhealthyDelay int, client HTTPClient) bool
+}
+
+type HTTPClient interface {
+	Get(url string) (*http.Response, error)
 }
 
 type RealURLChecker struct{}
 
-func (r RealURLChecker) IsUrlOk(url string, unhealthyThreshold int, unhealthyDelay int) bool {
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
-	client := &http.Client{Transport: tr}
+func (r RealURLChecker) IsUrlOk(url string, unhealthyThreshold int, unhealthyDelay int, client HTTPClient) bool {
 	status := checkURLOnce(url, client)
 	if status {
 		return true
@@ -32,10 +31,13 @@ func (r RealURLChecker) IsUrlOk(url string, unhealthyThreshold int, unhealthyDel
 	return false
 }
 
-func checkURLOnce(url string, client *http.Client) bool {
+func checkURLOnce(url string, client HTTPClient) bool {
 	resp, err := client.Get(url)
 	if err != nil {
 		log.Printf("failed to get URL: %v", err)
+		return false
+	}
+	if resp == nil || resp.Body == nil {
 		return false
 	}
 	defer resp.Body.Close()
