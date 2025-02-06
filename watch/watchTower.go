@@ -20,6 +20,7 @@ type DogConfig struct {
 	UnhealthyThreshold int
 	UnhealthyDelay     int
 	DeadProbeDelay     int
+	DeadThreshold      int
 	Checker            URLChecker
 	ChatId             string
 }
@@ -32,37 +33,46 @@ func Dog(config DogConfig) {
 	}
 	client := &http.Client{Transport: tr}
 
-	for message := range config.LivenessChannel {
-		if message != config.Server.Name {
-			continue
-		}
-		// if we think server is alive and it is really alive
-		if isAlive && config.Checker.IsUrlOk(config.Server.URL, config.UnhealthyThreshold, config.UnhealthyDelay, client) {
-			// do nothing
-			continue
-		}
-		// if we think server is alive, but it is not
-		if isAlive {
-			// mark server as not alive
-			isAlive = false
-			// start goroutine to wait it to wake up
-			go waitForWakeUp(config, &isAlive, client)
-			// notify about server is not OK
-			config.MessagesChannel <- bots.Message{ChatId: config.ChatId, Text: "❌ " + config.Server.Name + " is not responding ❌"}
+	waitChannel := make(chan bool)
+
+	for {
+		select {
+		case message := <-config.LivenessChannel:
+			if message != config.Server.Name {
+				continue
+			}
+			// if we think server is alive and it is really alive
+			if isAlive && config.Checker.IsUrlOk(config.Server.URL, config.UnhealthyThreshold, config.UnhealthyDelay, client) {
+				// do nothing
+				continue
+			}
+			// if we think server is alive, but it is not
+			if isAlive {
+				// mark server as not alive
+				isAlive = false
+				// start goroutine to wait it to wake up
+				go waitForWakeUp(config, waitChannel, client)
+				// notify about server is not OK
+				config.MessagesChannel <- bots.Message{ChatId: config.ChatId, Text: "❌ " + config.Server.Name + " is not responding ❌"}
+			}
+		case waitMessage := <-waitChannel:
+			if waitMessage {
+				isAlive = true
+			}
 		}
 	}
 }
 
-func waitForWakeUp(config DogConfig, isALive *bool, client HTTPClient) {
-	for i := 0; i < 10; i++ {
+func waitForWakeUp(config DogConfig, waitChan chan bool, client HTTPClient) {
+	for i := 0; i < config.DeadThreshold; i++ {
 		time.Sleep(time.Duration(config.DeadProbeDelay) * time.Second)
 		if config.Checker.IsUrlOk(config.Server.URL, config.UnhealthyThreshold, config.UnhealthyDelay, client) {
-			*isALive = true
+			waitChan <- true
 			config.MessagesChannel <- bots.Message{ChatId: config.ChatId, Text: "✅ " + config.Server.Name + " is back online ✅"}
 			return
 		}
 	}
-	config.MessagesChannel <- bots.Message{ChatId: config.ChatId, Text: "❌❌❌ " + config.Server.Name + " is really not OK, pause for " + strconv.Itoa(config.DeadProbeDelay) + " minutes ❌❌❌"}
+	config.MessagesChannel <- bots.Message{ChatId: config.ChatId, Text: "❌❌❌ " + config.Server.Name + " is offline, pause watching it for " + strconv.Itoa(config.DeadProbeDelay) + " minutes ❌❌❌"}
 	time.Sleep(time.Duration(config.DeadProbeDelay) * time.Minute)
-	*isALive = true
+	waitChan <- true
 }

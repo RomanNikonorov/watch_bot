@@ -34,6 +34,15 @@ func main() {
 		log.Fatal(err)
 	}
 
+	deadThresholdStr := os.Getenv("DEAD_PROBE_DELAY")
+	if deadThresholdStr == "" {
+		deadThresholdStr = "10" // default value
+	}
+	deadThreshold, err := strconv.Atoi(deadThresholdStr)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	unhealthyThresholdStr := os.Getenv("UNHEALTHY_THRESHOLD")
 	if unhealthyThresholdStr == "" {
 		unhealthyThresholdStr = "3" // default value
@@ -79,6 +88,7 @@ func main() {
 			UnhealthyThreshold: unhealthyThreshold,
 			UnhealthyDelay:     unhealthyDelay,
 			DeadProbeDelay:     deadProbeDelay,
+			DeadThreshold:      deadThreshold,
 			Checker:            watch.RealURLChecker{},
 			ChatId:             mainChatId,
 		}
