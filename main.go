@@ -34,7 +34,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	deadThresholdStr := os.Getenv("DEAD_PROBE_DELAY")
+	deadThresholdStr := os.Getenv("DEAD_PROBE_THRESHOLD")
 	if deadThresholdStr == "" {
 		deadThresholdStr = "10" // default value
 	}
@@ -78,7 +78,6 @@ func main() {
 
 	watchTowerLivenessChannelsMap := make(map[string]chan string)
 	bots.CreateBot(settings)
-	botMessagesChannel <- bots.Message{ChatId: mainChatId, Text: "WatchBot is on duty"}
 	for _, server := range servers {
 		watchTowerLivenessChannelsMap[server.Name] = make(chan string)
 		config := watch.DogConfig{

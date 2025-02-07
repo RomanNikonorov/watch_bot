@@ -14,8 +14,6 @@ func CreateBot(settings BotSettings) {
 		log.Fatal("unsupported bot type")
 	}
 	bot.CreateBot(settings.BotToken, settings.MessagesChannel)
-	settings.MessagesChannel <- Message{ChatId: settings.MainChatId, Text: "Hello, world!"}
-
 }
 
 type BotSettings struct {

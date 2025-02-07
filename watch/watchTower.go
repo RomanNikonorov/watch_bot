@@ -31,7 +31,10 @@ func Dog(config DogConfig) {
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
-	client := &http.Client{Transport: tr}
+	client := &http.Client{
+		Timeout:   time.Duration(1) * time.Second,
+		Transport: tr,
+	}
 
 	waitChannel := make(chan bool)
 
