@@ -15,10 +15,15 @@ func main() {
 	mainChatId := os.Getenv("MAIN_CHAT_ID")
 	botType := os.Getenv("BOT_TYPE")
 
+	// delay between probes
 	probeDelay := GetEnvVariableValueWithDefault("PROBE_DELAY", "5")
+	// delay between probes when server is dead
 	deadProbeDelay := GetEnvVariableValueWithDefault("DEAD_PROBE_DELAY", "60")
+	// number of dead probes before sending a message
 	deadThreshold := GetEnvVariableValueWithDefault("DEAD_PROBE_THRESHOLD", "10")
+	// number of unhealthy probes before sending a message
 	unhealthyThreshold := GetEnvVariableValueWithDefault("UNHEALTHY_THRESHOLD", "3")
+	// delay between unhealthy probes
 	unhealthyDelay := GetEnvVariableValueWithDefault("UNHEALTHY_DELAY", "2")
 
 	botMessagesChannel := make(chan bots.Message)
