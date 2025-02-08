@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"os"
-	"strconv"
 	"time"
 	"watch_bot/bots"
 	"watch_bot/watch"
@@ -16,50 +15,11 @@ func main() {
 	mainChatId := os.Getenv("MAIN_CHAT_ID")
 	botType := os.Getenv("BOT_TYPE")
 
-	probeDelayStr := os.Getenv("PROBE_DELAY")
-	if probeDelayStr == "" {
-		probeDelayStr = "5" // default value
-	}
-	probeDelay, err := strconv.Atoi(probeDelayStr)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	deadProbeDelayStr := os.Getenv("DEAD_PROBE_DELAY")
-	if deadProbeDelayStr == "" {
-		deadProbeDelayStr = "60" // default value
-	}
-	deadProbeDelay, err := strconv.Atoi(deadProbeDelayStr)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	deadThresholdStr := os.Getenv("DEAD_PROBE_THRESHOLD")
-	if deadThresholdStr == "" {
-		deadThresholdStr = "10" // default value
-	}
-	deadThreshold, err := strconv.Atoi(deadThresholdStr)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	unhealthyThresholdStr := os.Getenv("UNHEALTHY_THRESHOLD")
-	if unhealthyThresholdStr == "" {
-		unhealthyThresholdStr = "3" // default value
-	}
-	unhealthyThreshold, err := strconv.Atoi(unhealthyThresholdStr)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	unhealthyDelayStr := os.Getenv("UNHEALTHY_DELAY")
-	if unhealthyDelayStr == "" {
-		unhealthyDelayStr = "2" // default value
-	}
-	unhealthyDelay, err := strconv.Atoi(unhealthyDelayStr)
-	if err != nil {
-		log.Fatal(err)
-	}
+	probeDelay := GetEnvVariableValueWithDefault("PROBE_DELAY", "5")
+	deadProbeDelay := GetEnvVariableValueWithDefault("DEAD_PROBE_DELAY", "60")
+	deadThreshold := GetEnvVariableValueWithDefault("DEAD_PROBE_THRESHOLD", "10")
+	unhealthyThreshold := GetEnvVariableValueWithDefault("UNHEALTHY_THRESHOLD", "3")
+	unhealthyDelay := GetEnvVariableValueWithDefault("UNHEALTHY_DELAY", "2")
 
 	botMessagesChannel := make(chan bots.Message)
 	settings := bots.BotSettings{
