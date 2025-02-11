@@ -9,6 +9,10 @@ WatchBot is a monitoring tool that checks the liveness of servers and sends noti
 - `MAIN_CHAT_ID`: The main chat ID where notifications will be sent.
 - `BOT_TYPE`: The type of bot ("telegram" or "vk").
 - `PROBE_DELAY`: The delay in seconds between each probe.
+- `DEAD_PROBE_DELAY`: The delay in seconds between probes when the server is dead.
+- `DEAD_PROBE_THRESHOLD`: The number of dead probes before sending a message.
+- `UNHEALTHY_THRESHOLD`: The number of unhealthy probes before sending a message.
+- `UNHEALTHY_DELAY`: The delay in seconds between unhealthy probes.
 - `CONNECTION_STR`: The connection string for the database containing the servers to be monitored.
 
 ## SQL Script for Creating Database
