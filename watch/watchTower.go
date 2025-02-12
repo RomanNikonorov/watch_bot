@@ -22,6 +22,7 @@ type DogConfig struct {
 	UnhealthyDelay     int
 	DeadProbeDelay     int
 	DeadThreshold      int
+	DeadPause          int
 	Checker            URLChecker
 	ChatId             string
 }
@@ -46,7 +47,8 @@ func Dog(config DogConfig) {
 				continue
 			}
 			// if we think server is alive and it is really alive
-			if isAlive && config.Checker.IsUrlOk(config.Server.URL, config.UnhealthyThreshold, config.UnhealthyDelay, client) {
+			isNowOk := config.Checker.IsUrlOk(config.Server.URL, config.UnhealthyThreshold, config.UnhealthyDelay, client)
+			if isAlive && isNowOk {
 				// do nothing
 				continue
 			}
@@ -79,7 +81,8 @@ func waitForWakeUp(config DogConfig, waitChan chan bool, client HTTPClient) {
 		}
 		log.Printf("Server %s is still dead after %d probes", config.Server.Name, i+1)
 	}
-	config.MessagesChannel <- bots.Message{ChatId: config.ChatId, Text: "❌❌❌ " + config.Server.Name + " is offline, pause watching it for " + strconv.Itoa(config.DeadProbeDelay) + " minutes ❌❌❌"}
-	time.Sleep(time.Duration(config.DeadProbeDelay) * time.Minute)
+	pauseMinutes := config.DeadPause
+	config.MessagesChannel <- bots.Message{ChatId: config.ChatId, Text: "❌❌❌ " + config.Server.Name + " is offline, pause watching it for " + strconv.Itoa(pauseMinutes) + " minutes ❌❌❌"}
+	time.Sleep(time.Duration(pauseMinutes) * time.Minute)
 	waitChan <- true
 }

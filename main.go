@@ -46,6 +46,8 @@ func main() {
 	deadProbeDelay := GetEnvVariableValueWithDefault("DEAD_PROBE_DELAY", "60")
 	// number of dead probes before sending a message
 	deadThreshold := GetEnvVariableValueWithDefault("DEAD_PROBE_THRESHOLD", "10")
+	// pause in minutes before continuing to probe after server is dead
+	deadPause := GetEnvVariableValueWithDefault("DEAD_PROBE_PAUSE", "30")
 	// number of unhealthy probes before sending a message
 	unhealthyThreshold := GetEnvVariableValueWithDefault("UNHEALTHY_THRESHOLD", "3")
 	// delay between unhealthy probes
@@ -80,6 +82,7 @@ func main() {
 			DeadThreshold:      deadThreshold,
 			Checker:            watch.RealURLChecker{},
 			ChatId:             mainChatId,
+			DeadPause:          deadPause,
 		}
 		go watch.Dog(config)
 	}
