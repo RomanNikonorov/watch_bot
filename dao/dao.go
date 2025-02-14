@@ -1,4 +1,4 @@
-package main
+package dao
 
 import (
 	"database/sql"
@@ -8,7 +8,7 @@ import (
 	"watch_bot/watch"
 )
 
-func getServers(connStr string) ([]watch.Server, error) {
+func GetServers(connStr string) ([]watch.Server, error) {
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {

@@ -12,9 +12,9 @@ import (
 	"syscall"
 	"time"
 	"watch_bot/bots"
+	"watch_bot/dao"
+	"watch_bot/lib"
 	"watch_bot/watch"
-
-	"watch_bot/handlers"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -41,17 +41,17 @@ func main() {
 	botType := os.Getenv("BOT_TYPE")
 
 	// delay between probes
-	probeDelay := GetEnvVariableValueWithDefault("PROBE_DELAY", "5")
+	probeDelay := lib.GetEnvVariableValueWithDefault("PROBE_DELAY", "5")
 	// delay between probes when server is dead
-	deadProbeDelay := GetEnvVariableValueWithDefault("DEAD_PROBE_DELAY", "60")
+	deadProbeDelay := lib.GetEnvVariableValueWithDefault("DEAD_PROBE_DELAY", "60")
 	// number of dead probes before sending a message
-	deadThreshold := GetEnvVariableValueWithDefault("DEAD_PROBE_THRESHOLD", "10")
+	deadThreshold := lib.GetEnvVariableValueWithDefault("DEAD_PROBE_THRESHOLD", "10")
 	// pause in minutes before continuing to probe after server is dead
-	deadPause := GetEnvVariableValueWithDefault("DEAD_PROBE_PAUSE", "30")
+	deadPause := lib.GetEnvVariableValueWithDefault("DEAD_PROBE_PAUSE", "30")
 	// number of unhealthy probes before sending a message
-	unhealthyThreshold := GetEnvVariableValueWithDefault("UNHEALTHY_THRESHOLD", "3")
+	unhealthyThreshold := lib.GetEnvVariableValueWithDefault("UNHEALTHY_THRESHOLD", "3")
 	// delay between unhealthy probes
-	unhealthyDelay := GetEnvVariableValueWithDefault("UNHEALTHY_DELAY", "2")
+	unhealthyDelay := lib.GetEnvVariableValueWithDefault("UNHEALTHY_DELAY", "2")
 
 	botMessagesChannel := make(chan bots.Message)
 	settings := bots.BotSettings{
@@ -63,7 +63,7 @@ func main() {
 	}
 
 	connectionStr := os.Getenv("CONNECTION_STR")
-	servers, err := getServers(connectionStr)
+	servers, err := dao.GetServers(connectionStr)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -108,8 +108,8 @@ func main() {
 	httpRouter.Use(middleware.Logger)
 	httpRouter.Use(middleware.Recoverer)
 
-	httpRouter.HandleFunc("/health", handlers.Healthz)
-	httpRouter.HandleFunc("/ready", handlers.Readyz(isReady))
+	httpRouter.HandleFunc("/health", lib.Healthz)
+	httpRouter.HandleFunc("/ready", lib.Readyz(isReady))
 	httpRouter.Handle("/metrics", promhttp.Handler())
 
 	go func() {
