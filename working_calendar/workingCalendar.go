@@ -72,7 +72,7 @@ func FillWorkingTime() WorkingTime {
 	var daysOff []time.Weekday
 	if daysOffStr != "" {
 		daysOffStrSlice := strings.Split(daysOffStr, ",")
-		daysOff := make([]time.Weekday, len(daysOffStrSlice))
+		daysOff = make([]time.Weekday, len(daysOffStrSlice))
 		for i, day := range daysOffStrSlice {
 			switch strings.TrimSpace(day) {
 			case "Sunday":
