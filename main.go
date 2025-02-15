@@ -2,6 +2,10 @@ package main
 
 import (
 	"context"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"gopkg.in/Graylog2/go-gelf.v1/gelf"
 	"io"
 	"log"
 	"net/http"
@@ -15,11 +19,7 @@ import (
 	"watch_bot/dao"
 	"watch_bot/lib"
 	"watch_bot/watch"
-
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"gopkg.in/Graylog2/go-gelf.v1/gelf"
+	"watch_bot/working_calendar"
 )
 
 func main() {
@@ -119,10 +119,13 @@ func main() {
 		}
 	}()
 
+	workingCalendar := working_calendar.FillWorkingTime()
 	for {
 		time.Sleep(time.Duration(probeDelay) * time.Second)
 		for _, server := range servers {
-			watchTowerLivenessChannelsMap[server.Name] <- server.Name
+			if working_calendar.IsWorkingTime(workingCalendar, time.Now()) {
+				watchTowerLivenessChannelsMap[server.Name] <- server.Name
+			}
 		}
 	}
 }
