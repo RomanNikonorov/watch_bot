@@ -11,4 +11,11 @@ RUN go build -ldflags="-s -w" -o watch_bot .
 FROM alpine:latest
 WORKDIR /build
 COPY --from=builder /build/watch_bot /build/watch_bot
+
+# Set the timezone from the environment variable
+ENV TZ=${TZ:-UTC}
+RUN apk add --no-cache tzdata \
+    && cp /usr/share/zoneinfo/$TZ /etc/localtime \
+    && echo "$TZ" > /etc/timezone
+
 ENTRYPOINT ["./watch_bot"]

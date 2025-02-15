@@ -67,6 +67,20 @@ func TestFillWorkingTime(t *testing.T) {
 				hasWorkingTime: true,
 			},
 		},
+		{
+			name: "days off not set",
+			envVars: map[string]string{
+				"START_TIME": "09:00",
+				"END_TIME":   "18:00",
+				"DAYS_OFF":   "",
+			},
+			want: WorkingTime{
+				StartTime:      startTime,
+				EndTime:        endTime,
+				DaysOff:        nil,
+				hasWorkingTime: true,
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -140,6 +154,18 @@ func TestIsWorkingTime(t *testing.T) {
 				StartTime:      startTime,
 				EndTime:        endTime,
 				DaysOff:        []time.Weekday{time.Saturday, time.Sunday},
+				hasWorkingTime: true,
+			},
+			currentTime: time.Date(2024, 3, 20, 8, 59, 0, 0, location),
+			want:        false,
+		},
+
+		{
+			name: "days off not set",
+			workingTime: WorkingTime{
+				StartTime:      startTime,
+				EndTime:        endTime,
+				DaysOff:        nil,
 				hasWorkingTime: true,
 			},
 			currentTime: time.Date(2024, 3, 20, 8, 59, 0, 0, location),

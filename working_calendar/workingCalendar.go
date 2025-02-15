@@ -69,24 +69,29 @@ func FillWorkingTime() WorkingTime {
 		}
 	}
 
-	daysOffStrSlice := strings.Split(daysOffStr, ",")
-	daysOff := make([]time.Weekday, len(daysOffStrSlice))
-	for i, day := range daysOffStrSlice {
-		switch strings.TrimSpace(day) {
-		case "Sunday":
-			daysOff[i] = time.Sunday
-		case "Monday":
-			daysOff[i] = time.Monday
-		case "Tuesday":
-			daysOff[i] = time.Tuesday
-		case "Wednesday":
-			daysOff[i] = time.Wednesday
-		case "Thursday":
-			daysOff[i] = time.Thursday
-		case "Friday":
-			daysOff[i] = time.Friday
-		case "Saturday":
-			daysOff[i] = time.Saturday
+	var daysOff []time.Weekday
+	if daysOffStr != "" {
+		daysOffStrSlice := strings.Split(daysOffStr, ",")
+		daysOff := make([]time.Weekday, len(daysOffStrSlice))
+		for i, day := range daysOffStrSlice {
+			switch strings.TrimSpace(day) {
+			case "Sunday":
+				daysOff[i] = time.Sunday
+			case "Monday":
+				daysOff[i] = time.Monday
+			case "Tuesday":
+				daysOff[i] = time.Tuesday
+			case "Wednesday":
+				daysOff[i] = time.Wednesday
+			case "Thursday":
+				daysOff[i] = time.Thursday
+			case "Friday":
+				daysOff[i] = time.Friday
+			case "Saturday":
+				daysOff[i] = time.Saturday
+			default:
+				log.Printf("Unknown day off: %v", day)
+			}
 		}
 	}
 

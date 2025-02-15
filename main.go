@@ -119,6 +119,7 @@ func main() {
 		}
 	}()
 
+	log.Printf("Current time: %v", time.Now().Format("02.01.2006 MST"))
 	workingCalendar := working_calendar.FillWorkingTime()
 	for {
 		time.Sleep(time.Duration(probeDelay) * time.Second)
