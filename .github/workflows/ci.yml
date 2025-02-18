@@ -3,15 +3,20 @@ name: CI
 on:
   push:
     branches:
-      - mvp
+      - '*'
+  pull_request:
+    branches:
+      - master
 
 jobs:
-  build:
+  test-and-build:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v4
@@ -32,3 +37,48 @@ jobs:
         with:
           name: watch_bot
           path: watch_bot
+
+  docker:
+    needs: test-and-build
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get latest tag
+        id: get_tag
+        run: |
+          current=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1
+          major=$(echo $current | cut -d. -f1)
+          minor=$(echo $current | cut -d. -f2)
+          patch=$(echo $current | cut -d. -f3)
+          new_minor=$((minor + 1))
+          new_tag="${major}.${new_minor}.0"
+          echo "NEW_TAG=$new_tag" >> $GITHUB_ENV
+
+      - name: Create and push tag
+        run: |
+          git tag ${{ env.NEW_TAG }}
+          git push origin ${{ env.NEW_TAG }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/watch_bot:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/watch_bot:${{ env.NEW_TAG }}
