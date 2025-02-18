@@ -51,6 +51,8 @@ jobs:
 
       - name: Get latest tag
         id: get_tag
+        with:
+          token: ${{ secrets.GH_TOKEN }}
         run: |
           current=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
           major=$(echo $current | cut -d. -f1)
