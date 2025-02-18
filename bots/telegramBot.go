@@ -14,9 +14,10 @@ type TelegramBot struct {
 func (b *TelegramBot) CreateBot(botToken string, messagesChannel chan Message) WatchBot {
 	bot, err := tgbotapi.NewBotAPI(botToken)
 	if err != nil {
-		log.Fatal("wrong parameters for bot creation")
+		log.Fatal("wrong parameters for bot creation :", err)
 	}
 	b.Bot = bot
+	go b.ListenMessagesToSend(messagesChannel)
 	return b
 }
 

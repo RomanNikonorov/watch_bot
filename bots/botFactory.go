@@ -2,7 +2,7 @@ package bots
 
 import "log"
 
-func ProduceBot(settings BotSettings) {
+func CreateBot(settings BotSettings) {
 	var bot WatchBot
 	switch settings.BotType {
 	case "vk":
@@ -14,8 +14,6 @@ func ProduceBot(settings BotSettings) {
 		log.Fatal("unsupported bot type")
 	}
 	bot.CreateBot(settings.BotToken, settings.MessagesChannel)
-	settings.MessagesChannel <- Message{ChatId: settings.MainChatId, Text: "Hello, world!"}
-
 }
 
 type BotSettings struct {
