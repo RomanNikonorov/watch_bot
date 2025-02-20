@@ -74,9 +74,8 @@ func waitForWakeUp(config DogConfig, waitChan chan bool, client HTTPClient) {
 	log.Printf("Start waiting for server %s to wake up with %d probes %d seconds each", config.Server.Name, config.DeadThreshold, config.DeadProbeDelay)
 	for i := 0; i < config.DeadThreshold; i++ {
 		time.Sleep(time.Duration(config.DeadProbeDelay) * time.Second)
-		if config.Checker.IsUrlOk(config.Server.URL, config.UnhealthyThreshold, config.UnhealthyDelay, client) {
+		if checkAndReport(config, client) {
 			waitChan <- true
-			config.MessagesChannel <- bots.Message{ChatId: config.ChatId, Text: "✅ " + config.Server.Name + " is back online ✅"}
 			return
 		}
 		log.Printf("Server %s is still dead after %d probes", config.Server.Name, i+1)
@@ -84,5 +83,14 @@ func waitForWakeUp(config DogConfig, waitChan chan bool, client HTTPClient) {
 	pauseMinutes := config.DeadPause
 	config.MessagesChannel <- bots.Message{ChatId: config.ChatId, Text: "❌❌❌ " + config.Server.Name + " is offline, pause watching it for " + strconv.Itoa(pauseMinutes) + " minutes ❌❌❌"}
 	time.Sleep(time.Duration(pauseMinutes) * time.Minute)
+	checkAndReport(config, client)
 	waitChan <- true
+}
+
+func checkAndReport(config DogConfig, client HTTPClient) bool {
+	isOk := config.Checker.IsUrlOk(config.Server.URL, config.UnhealthyThreshold, config.UnhealthyDelay, client)
+	if isOk {
+		config.MessagesChannel <- bots.Message{ChatId: config.ChatId, Text: "✅ " + config.Server.Name + " is back online ✅"}
+	}
+	return isOk
 }

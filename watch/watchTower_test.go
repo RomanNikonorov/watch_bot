@@ -37,7 +37,7 @@ func TestDog(t *testing.T) {
 			unhealthyThreshold: 1,
 			deadProbeDelay:     2,
 			expectedMessages:   []string{"❌ TestServer is not responding ❌"},
-			urlResponses:       []bool{false, false},
+			urlResponses:       []bool{false, false, false},
 		},
 		{
 			name: "Server remains healthy",
