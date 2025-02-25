@@ -54,6 +54,8 @@ func main() {
 	unhealthyDelay := lib.GetEnvVariableValueWithDefault("UNHEALTHY_DELAY", "2")
 	// retry count for bot
 	retryCount := lib.GetEnvVariableValueWithDefault("RETRY_COUNT", "3")
+	// retry pause for bot
+	retryPause := lib.GetEnvVariableValueWithDefault("RETRY_PAUSE", "5")
 
 	botMessagesChannel := make(chan bots.Message)
 	settings := bots.BotSettings{
@@ -63,6 +65,7 @@ func main() {
 		BotType:         botType,
 		MessagesChannel: botMessagesChannel,
 		RetryCount:      retryCount,
+		RetryPause:      retryPause,
 	}
 
 	connectionStr := os.Getenv("CONNECTION_STR")
