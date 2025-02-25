@@ -12,6 +12,8 @@ WatchBot is a monitoring tool that checks the liveness of servers and sends noti
 - `BOT_API_URL`: Bot API URL
 - `MAIN_CHAT_ID`: Main chat ID for notifications
 - `BOT_TYPE`: Type of bot to use (can be `telegram` or `vk`)
+- `RETRY_COUNT`: Number of attempts to send a message (default: 3)
+- `RETRY_PAUSE`: Pause between retry attempts in seconds (default: 5)
 
 ### Probe Configuration
 - `PROBE_DELAY`: Delay between probes in seconds (default: 5)
@@ -28,6 +30,8 @@ WatchBot is a monitoring tool that checks the liveness of servers and sends noti
 
 ### Logging
 - `GRAYLOG_ADDR`: Graylog server address (optional)
+
+
 
 ## SQL Script for Creating Database
 
