@@ -13,7 +13,7 @@ func CreateBot(settings BotSettings) {
 	default:
 		log.Fatal("unsupported bot type")
 	}
-	bot.CreateBot(settings.BotToken, settings.MessagesChannel)
+	bot.CreateBot(settings.BotToken, settings.MessagesChannel, settings.RetryCount)
 }
 
 type BotSettings struct {
@@ -22,6 +22,7 @@ type BotSettings struct {
 	MainChatId      string
 	BotType         string
 	MessagesChannel chan Message
+	RetryCount      int
 }
 
 type Message struct {
