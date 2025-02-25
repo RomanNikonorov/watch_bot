@@ -52,6 +52,8 @@ func main() {
 	unhealthyThreshold := lib.GetEnvVariableValueWithDefault("UNHEALTHY_THRESHOLD", "3")
 	// delay between unhealthy probes
 	unhealthyDelay := lib.GetEnvVariableValueWithDefault("UNHEALTHY_DELAY", "2")
+	// retry count for bot
+	retryCount := lib.GetEnvVariableValueWithDefault("RETRY_COUNT", "3")
 
 	botMessagesChannel := make(chan bots.Message)
 	settings := bots.BotSettings{
@@ -60,6 +62,7 @@ func main() {
 		MainChatId:      mainChatId,
 		BotType:         botType,
 		MessagesChannel: botMessagesChannel,
+		RetryCount:      retryCount,
 	}
 
 	connectionStr := os.Getenv("CONNECTION_STR")
