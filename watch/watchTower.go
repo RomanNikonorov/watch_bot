@@ -80,7 +80,7 @@ func waitForWakeUp(config DogConfig, waitChan chan bool, client HTTPClient) {
 		log.Printf("Server %s is still dead after %d probes", config.Server.Name, i+1)
 	}
 	pauseMinutes := config.DeadPause
-	config.MessagesChannel <- bots.Message{ChatId: config.ChatId, Text: "❌❌❌ " + config.Server.Name + " is offline, pause watching it for " + strconv.Itoa(pauseMinutes) + " minutes ❌❌❌"}
+	config.MessagesChannel <- bots.Message{ChatId: config.ChatId, Text: "☠️ " + config.Server.Name + " is offline, pause watching it for " + strconv.Itoa(pauseMinutes) + " minutes ☠️"}
 	time.Sleep(time.Duration(pauseMinutes) * time.Minute)
 	checkAndReport(config, client, waitChan)
 }
