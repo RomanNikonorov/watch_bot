@@ -22,6 +22,7 @@ WatchBot is a monitoring tool that checks the liveness of servers and sends noti
 - `DEAD_PROBE_PAUSE`: Pause in minutes before continuing to probe after server is dead (default: 30)
 - `UNHEALTHY_THRESHOLD`: Number of unhealthy probes before sending a message (default: 3)
 - `UNHEALTHY_DELAY`: Delay between unhealthy probes in seconds (default: 2)
+- 'PROBE_TIMEOUT': Timeout for probe in seconds (default: 3)
 
 ### Working Calendar Configuration
 - `START_TIME`: Start of working hours (format: "HH:MM", e.g., "09:00")

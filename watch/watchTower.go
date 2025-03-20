@@ -23,6 +23,7 @@ type DogConfig struct {
 	DeadProbeDelay     int
 	DeadThreshold      int
 	DeadPause          int
+	ProbeTimeout       int
 	Checker            URLChecker
 	ChatId             string
 }
@@ -34,7 +35,7 @@ func Dog(config DogConfig) {
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 	client := &http.Client{
-		Timeout:   time.Duration(1) * time.Second,
+		Timeout:   time.Duration(config.ProbeTimeout) * time.Second,
 		Transport: tr,
 	}
 
@@ -88,7 +89,7 @@ func waitForWakeUp(config DogConfig, waitChan chan bool, client HTTPClient) {
 func checkAndReport(config DogConfig, client HTTPClient, waitChan chan bool) bool {
 	isOk := config.Checker.IsUrlOk(config.Server.URL, config.UnhealthyThreshold, config.UnhealthyDelay, client)
 	if isOk {
-		config.MessagesChannel <- bots.Message{ChatId: config.ChatId, Text: "✅ " + config.Server.Name + " is back online ✅"}
+		config.MessagesChannel <- bots.Message{ChatId: config.ChatId, Text: "✅ " + config.Server.Name + " is responding ✅"}
 		waitChan <- true
 	}
 	return isOk

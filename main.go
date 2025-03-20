@@ -56,6 +56,8 @@ func main() {
 	retryCount := lib.GetEnvVariableValueWithDefault("RETRY_COUNT", "3")
 	// retry pause for bot
 	retryPause := lib.GetEnvVariableValueWithDefault("RETRY_PAUSE", "5")
+	// probe timeout
+	probeTimeout := lib.GetEnvVariableValueWithDefault("PROBE_TIMEOUT", "3")
 
 	botMessagesChannel := make(chan bots.Message)
 	settings := bots.BotSettings{
@@ -89,6 +91,7 @@ func main() {
 			Checker:            watch.RealURLChecker{},
 			ChatId:             mainChatId,
 			DeadPause:          deadPause,
+			ProbeTimeout:       probeTimeout,
 		}
 		go watch.Dog(config)
 	}
