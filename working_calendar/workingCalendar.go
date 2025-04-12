@@ -5,7 +5,6 @@ import (
 	"os"
 	"strings"
 	"time"
-	"watch_bot/dao"
 )
 
 type WorkingTime struct {
@@ -24,7 +23,7 @@ func contains(weekdays []time.Weekday, day time.Weekday) bool {
 	return false
 }
 
-func IsWorkingTime(workingTime WorkingTime, currentTime time.Time) bool {
+func IsWorkingTime(workingTime WorkingTime, currentTime time.Time, unusualDays []time.Time) bool {
 
 	if !workingTime.hasWorkingTime {
 		return true
@@ -32,13 +31,6 @@ func IsWorkingTime(workingTime WorkingTime, currentTime time.Time) bool {
 
 	currentWeekday := currentTime.Weekday()
 
-	connectionStr := os.Getenv("CONNECTION_STR")
-	unusualDays, err := dao.GetUnusualDays(connectionStr)
-
-	if err != nil {
-		log.Printf("Error getting unusual days: %v", err)
-		return false
-	}
 	isUnusualDay := isUnusualDay(currentTime, unusualDays)
 
 	if contains(workingTime.DaysOff, currentWeekday) {

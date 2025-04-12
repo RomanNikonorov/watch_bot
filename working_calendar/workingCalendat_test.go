@@ -205,7 +205,7 @@ func TestIsWorkingTime(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := IsWorkingTime(tt.workingTime, tt.currentTime)
+			got := IsWorkingTime(tt.workingTime, tt.currentTime, []time.Time{})
 			if got != tt.want {
 				t.Errorf("IsWorkingTime() = %v, want %v", got, tt.want)
 			}
