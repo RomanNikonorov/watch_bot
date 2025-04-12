@@ -31,7 +31,7 @@ func GetUnusualDays(connStr string) ([]time.Time, error) {
 		}
 	}(db)
 
-	rows, err := db.Query("select unusual_days.unusual_date from unusual_days where unusual_days.unusual_date > now()")
+	rows, err := db.Query("select unusual_days.unusual_date from unusual_days where unusual_days.unusual_date >= now()")
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute query: %w", err)
 	}
