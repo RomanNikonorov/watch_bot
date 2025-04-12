@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	_ "github.com/lib/pq"
+	"time"
 
 	"watch_bot/watch"
 )
@@ -17,7 +18,8 @@ func getDb(connStr string) (*sql.DB, error) {
 	return db, nil
 }
 
-func GetUnusualDays(connStr string) ([]string, error) {
+// GetUnusualDays retrieves the list of unusual days from the database.
+func GetUnusualDays(connStr string) ([]time.Time, error) {
 	db, err := getDb(connStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get db: %w", err)
@@ -40,13 +42,13 @@ func GetUnusualDays(connStr string) ([]string, error) {
 		}
 	}(rows)
 
-	var days []string
+	var days []time.Time
 	for rows.Next() {
-		var day string
+		var day time.Time
 		if err := rows.Scan(&day); err != nil {
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
-		fmt.Printf("Day: %s\n", day)
+		fmt.Printf("Day: %s\n", day.Format("2006-01-02"))
 		days = append(days, day)
 	}
 
@@ -57,6 +59,7 @@ func GetUnusualDays(connStr string) ([]string, error) {
 	return days, nil
 }
 
+// GetServers retrieves the list of servers from the database.
 func GetServers(connStr string) ([]watch.Server, error) {
 
 	db, err := getDb(connStr)

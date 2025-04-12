@@ -130,10 +130,14 @@ func main() {
 
 	log.Printf("Current time: %v", time.Now().Format("02.01.2006 MST"))
 	workingCalendar := working_calendar.FillWorkingTime()
+	unusualDays, err := dao.GetUnusualDays(connectionStr)
+	if err != nil {
+		log.Printf("Error getting unusual days: %v", err)
+	}
 	for {
 		time.Sleep(time.Duration(probeDelay) * time.Second)
 		for _, server := range servers {
-			if working_calendar.IsWorkingTime(workingCalendar, time.Now()) {
+			if working_calendar.IsWorkingTime(workingCalendar, time.Now(), unusualDays) {
 				watchTowerLivenessChannelsMap[server.Name] <- server.Name
 			}
 		}

@@ -23,22 +23,49 @@ func contains(weekdays []time.Weekday, day time.Weekday) bool {
 	return false
 }
 
-func IsWorkingTime(workingTime WorkingTime, currentTime time.Time) bool {
+func IsWorkingTime(workingTime WorkingTime, currentTime time.Time, unusualDays []time.Time) bool {
 
 	if !workingTime.hasWorkingTime {
 		return true
 	}
 
 	currentWeekday := currentTime.Weekday()
+
+	isUnusualDay := isUnusualDay(currentTime, unusualDays)
+
 	if contains(workingTime.DaysOff, currentWeekday) {
-		return false
+		return isUnusualDay
 	}
 
 	currentTimeTimeOnly := time.Date(0, 1, 1, currentTime.Hour(), currentTime.Minute(), currentTime.Second(), currentTime.Nanosecond(), currentTime.Location())
 	if currentTimeTimeOnly.Before(workingTime.StartTime) || currentTimeTimeOnly.After(workingTime.EndTime) {
 		return false
 	}
-	return true
+
+	return !isUnusualDay
+
+}
+
+// isUnusualDay checks if the current date (ignoring time) matches any date in the unusual days list
+func isUnusualDay(currentTime time.Time, unusualDays []time.Time) bool {
+	// If no unusual days defined, return false
+	if len(unusualDays) == 0 {
+		return false
+	}
+
+	// Remove time component from current time, keeping only the date part
+	currentDate := time.Date(currentTime.Year(), currentTime.Month(), currentTime.Day(), 0, 0, 0, 0, currentTime.Location())
+
+	for _, unusualDay := range unusualDays {
+		// Remove time component from unusual day, keeping only the date part
+		unusualDate := time.Date(unusualDay.Year(), unusualDay.Month(), unusualDay.Day(), 0, 0, 0, 0, unusualDay.Location())
+
+		if currentDate.Equal(unusualDate) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func FillWorkingTime() WorkingTime {
