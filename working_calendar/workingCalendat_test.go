@@ -212,3 +212,65 @@ func TestIsWorkingTime(t *testing.T) {
 		})
 	}
 }
+
+func TestIsUnusualDay(t *testing.T) {
+	location, _ := time.LoadLocation("Local")
+
+	tests := []struct {
+		name        string
+		currentTime time.Time
+		unusualDays []time.Time
+		want        bool
+	}{
+		{
+			name:        "current day is unusual",
+			currentTime: time.Date(2024, 5, 1, 14, 30, 0, 0, location),
+			unusualDays: []time.Time{
+				time.Date(2024, 4, 30, 0, 0, 0, 0, location),
+				time.Date(2024, 5, 1, 0, 0, 0, 0, location), // May 1st is unusual
+				time.Date(2024, 5, 2, 0, 0, 0, 0, location),
+			},
+			want: true,
+		},
+		{
+			name:        "current day is not unusual",
+			currentTime: time.Date(2024, 5, 3, 10, 0, 0, 0, location),
+			unusualDays: []time.Time{
+				time.Date(2024, 5, 1, 0, 0, 0, 0, location),
+				time.Date(2024, 5, 2, 0, 0, 0, 0, location),
+			},
+			want: false,
+		},
+		{
+			name:        "empty unusual days list",
+			currentTime: time.Date(2024, 5, 1, 12, 0, 0, 0, location),
+			unusualDays: []time.Time{},
+			want:        false,
+		},
+		{
+			name:        "current time with non-zero hour/minute ignores time part",
+			currentTime: time.Date(2024, 5, 1, 14, 30, 45, 0, location),
+			unusualDays: []time.Time{
+				time.Date(2024, 5, 1, 0, 0, 0, 0, location),
+			},
+			want: true,
+		},
+		{
+			name:        "unusual day with non-zero time part",
+			currentTime: time.Date(2024, 5, 1, 0, 0, 0, 0, location),
+			unusualDays: []time.Time{
+				time.Date(2024, 5, 1, 10, 30, 0, 0, location),
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isUnusualDay(tt.currentTime, tt.unusualDays)
+			if got != tt.want {
+				t.Errorf("isUnusualDay() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
