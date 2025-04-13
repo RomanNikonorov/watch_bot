@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -24,7 +25,7 @@ import (
 
 func main() {
 	graylogAddr := os.Getenv("GRAYLOG_ADDR")
-	// greylog
+	// graylog
 	if graylogAddr != "" {
 		gelfWriter, err := gelf.NewWriter(graylogAddr)
 		if err != nil {
@@ -130,7 +131,10 @@ func main() {
 
 	log.Printf("Current time: %v", time.Now().Format("02.01.2006 MST"))
 	workingCalendar := working_calendar.FillWorkingTime()
-	unusualDays, err := dao.GetUnusualDays(connectionStr)
+	unusualDays, err := dao.GetUnusualDays(connectionStr, time.Now())
+	for _, day := range unusualDays {
+		fmt.Printf("Unusual day: %s\n", day.Format("2006-01-02"))
+	}
 	if err != nil {
 		log.Printf("Error getting unusual days: %v", err)
 	}

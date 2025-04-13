@@ -53,12 +53,19 @@ func isUnusualDay(currentTime time.Time, unusualDays []time.Time) bool {
 		return false
 	}
 
-	// Remove time component from current time, keeping only the date part
-	currentDate := time.Date(currentTime.Year(), currentTime.Month(), currentTime.Day(), 0, 0, 0, 0, currentTime.Location())
+	location, errLocation := time.LoadLocation("Local")
+
+	if errLocation != nil {
+		log.Printf("Error loading location: %v", errLocation)
+		location = time.UTC // fallback to UTC if location cannot be loaded
+	}
+
+	// remove time component from current time, keeping only the date part
+	currentDate := time.Date(currentTime.Year(), currentTime.Month(), currentTime.Day(), 0, 0, 0, 0, location)
 
 	for _, unusualDay := range unusualDays {
-		// Remove time component from unusual day, keeping only the date part
-		unusualDate := time.Date(unusualDay.Year(), unusualDay.Month(), unusualDay.Day(), 0, 0, 0, 0, unusualDay.Location())
+		// remove time component from unusual day, keeping only the date part
+		unusualDate := time.Date(unusualDay.Year(), unusualDay.Month(), unusualDay.Day(), 0, 0, 0, 0, location)
 
 		if currentDate.Equal(unusualDate) {
 			return true

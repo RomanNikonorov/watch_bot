@@ -19,7 +19,7 @@ func getDb(connStr string) (*sql.DB, error) {
 }
 
 // GetUnusualDays retrieves the list of unusual days from the database.
-func GetUnusualDays(connStr string) ([]time.Time, error) {
+func GetUnusualDays(connStr string, currentDate time.Time) ([]time.Time, error) {
 	db, err := getDb(connStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get db: %w", err)
@@ -31,7 +31,7 @@ func GetUnusualDays(connStr string) ([]time.Time, error) {
 		}
 	}(db)
 
-	rows, err := db.Query("select unusual_days.unusual_date from unusual_days")
+	rows, err := db.Query("select unusual_days.unusual_date from unusual_days where unusual_date >= $1", currentDate)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute query: %w", err)
 	}
@@ -48,7 +48,6 @@ func GetUnusualDays(connStr string) ([]time.Time, error) {
 		if err := rows.Scan(&day); err != nil {
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
-		fmt.Printf("Day: %s\n", day.Format("2006-01-02"))
 		days = append(days, day)
 	}
 
