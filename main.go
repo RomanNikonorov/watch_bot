@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 	"watch_bot/bots"
+	"watch_bot/bots/commands"
 	"watch_bot/dao"
 	"watch_bot/lib"
 	"watch_bot/watch"
@@ -87,6 +88,12 @@ func main() {
 	defer cancel()
 
 	bots.CreateBot(ctx, settings)
+
+	// Initialize command router
+	commandRouter := bots.NewCommandRouter()
+	commandRouter.Register("duty", commands.NewDutyCommand(connectionStr))
+	go commandRouter.Listen(botCommandsChannel, botMessagesChannel)
+
 	for _, server := range servers {
 		watchTowerLivenessChannelsMap[server.Name] = make(chan string)
 		config := watch.DogConfig{

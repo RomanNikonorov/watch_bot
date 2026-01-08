@@ -29,6 +29,11 @@ func (b *TelegramBot) ListenIncomingMessages(ctx context.Context, messages chan 
 		case update := <-updates: // Обрабатываем входящие сообщения
 			if update.Message != nil {
 				log.Printf("Received message: %s from user id %d", update.Message.Text, update.Message.Chat.ID)
+				chatId := strconv.FormatInt(update.Message.Chat.ID, 10)
+				cmd := ParseCommand(update.Message.Text, chatId)
+				if cmd != nil {
+					messages <- *cmd
+				}
 			}
 		}
 	}

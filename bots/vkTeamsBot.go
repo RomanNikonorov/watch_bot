@@ -22,6 +22,11 @@ func (b VkTeamsBot) ListenIncomingMessages(ctx context.Context, messages chan Co
 			return
 		case update := <-updates: // Обрабатываем входящие сообщения
 			log.Println("Received message:", update.Payload.Text)
+			chatId := update.Payload.Chat.ID
+			cmd := ParseCommand(update.Payload.Text, chatId)
+			if cmd != nil {
+				messages <- *cmd
+			}
 		}
 	}
 }

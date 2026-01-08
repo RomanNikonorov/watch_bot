@@ -37,5 +37,6 @@ type Message struct {
 
 type Command struct {
 	Name   string
+	ChatId string
 	Params map[string]string
 }
