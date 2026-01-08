@@ -1,9 +1,11 @@
 package bots
 
 import (
-	"github.com/mail-ru-im/bot-golang"
+	"context"
 	"log"
 	"time"
+
+	"github.com/mail-ru-im/bot-golang"
 )
 
 type VkTeamsBot struct {
@@ -11,13 +13,27 @@ type VkTeamsBot struct {
 	BotApiUrl string
 }
 
-func (b VkTeamsBot) CreateBot(botToken string, messagesChannel chan Message, retryCount int, retryPause int) WatchBot {
+func (b VkTeamsBot) ListenIncomingMessages(ctx context.Context, messages chan Command) {
+	updates := b.Bot.GetUpdatesChannel(ctx)
+	for {
+		select {
+		case <-ctx.Done(): // Завершаем работу при отмене контекста
+			log.Println("Stopping ListenIncomingMessages:", ctx.Err())
+			return
+		case update := <-updates: // Обрабатываем входящие сообщения
+			log.Println("Received message:", update.Payload.Text)
+		}
+	}
+}
+
+func (b VkTeamsBot) CreateBot(ctx context.Context, commandChannel chan Command, botToken string, messagesChannel chan Message, retryCount int, retryPause int) WatchBot {
 	newBot, err := botgolang.NewBot(botToken, botgolang.BotApiURL(b.BotApiUrl))
 	if err != nil {
-		log.Fatal("wrong parameters for bot creation")
+		log.Fatal("Bot is not created: ", err)
 	}
 	b.Bot = newBot
 	go b.ListenMessagesToSend(messagesChannel, retryCount, retryPause)
+	go b.ListenIncomingMessages(ctx, commandChannel)
 	return b
 }
 
