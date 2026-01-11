@@ -91,7 +91,7 @@ func main() {
 
 	// Initialize command router
 	commandRouter := bots.NewCommandRouter()
-	commandRouter.Register("duty", commands.NewDutyCommand(connectionStr))
+	commandRouter.Register("duty", commands.NewDutyCommand(connectionStr, botMessagesChannel))
 	go commandRouter.Listen(botCommandsChannel, botMessagesChannel)
 
 	for _, server := range servers {

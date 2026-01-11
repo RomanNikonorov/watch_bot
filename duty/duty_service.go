@@ -19,12 +19,17 @@ func NewService(connectionStr string) *Service {
 	}
 }
 
+// DutyResult contains information about the current duty person
+type DutyResult struct {
+	DutyID string // ID чата дежурного
+}
+
 // GetCurrentDuty returns the current duty person and updates the database if needed
 // Algorithm:
 // 1. Find record where last_duty_date = today -> return it
 // 2. If not found, find record with max last_duty_date and get next by duty_id alphabetically
 // 3. Update the found record with today's date
-func (s *Service) GetCurrentDuty() (*dao.Duty, error) {
+func (s *Service) GetCurrentDuty() (*DutyResult, error) {
 	duties, err := dao.GetAllDuties(s.connectionStr)
 	if err != nil {
 		return nil, err
@@ -45,7 +50,9 @@ func (s *Service) GetCurrentDuty() (*dao.Duty, error) {
 		duty.LastDutyDate = &currentDate
 	}
 
-	return duty, nil
+	return &DutyResult{
+		DutyID: duty.DutyID,
+	}, nil
 }
 
 // FindCurrentDuty finds the current duty person from a list of duties
