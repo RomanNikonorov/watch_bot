@@ -17,10 +17,10 @@ func (b VkTeamsBot) ListenIncomingMessages(ctx context.Context, messages chan Co
 	updates := b.Bot.GetUpdatesChannel(ctx)
 	for {
 		select {
-		case <-ctx.Done(): // Завершаем работу при отмене контекста
+		case <-ctx.Done(): // Stop on context cancellation
 			log.Println("Stopping ListenIncomingMessages:", ctx.Err())
 			return
-		case update := <-updates: // Обрабатываем входящие сообщения
+		case update := <-updates: // Process incoming messages
 			log.Println("Received message:", update.Payload.Text)
 			chatId := update.Payload.Chat.ID
 			cmd := ParseCommand(update.Payload.Text, chatId)

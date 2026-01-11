@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// MockHTTPClient реализует интерфейс HTTPClient для мокирования
+// MockHTTPClient implements HTTPClient interface for mocking
 type MockHTTPClient struct {
 	DoFunc func(req *http.Request) (*http.Response, error)
 }
@@ -20,9 +20,9 @@ func (m *MockHTTPClient) Get(url string) (*http.Response, error) {
 	return m.DoFunc(req)
 }
 
-// TestIsUrlOkHealthy проверяет, что метод IsUrlOk возвращает true для корректного URL
+// TestIsUrlOkHealthy verifies that IsUrlOk returns true for a valid URL
 func TestIsUrlOkHealthy(t *testing.T) {
-	// Создаем фейковый HTTP-клиент, который отвечает 200 OK
+	// Create a fake HTTP client that responds with 200 OK
 	mockClient := &MockHTTPClient{
 		DoFunc: func(req *http.Request) (*http.Response, error) {
 			return &http.Response{
@@ -32,24 +32,24 @@ func TestIsUrlOkHealthy(t *testing.T) {
 		},
 	}
 
-	// Создаем экземпляр RealURLChecker
+	// Create an instance of RealURLChecker
 	checker := RealURLChecker{}
 
-	// Вызываем метод IsUrlOk
+	// Call the IsUrlOk method
 	url := "http://example.com"
 	unhealthyThreshold := 1
 	unhealthyDelay := 1
 	result := checker.IsUrlOk(url, unhealthyThreshold, unhealthyDelay, mockClient)
 
-	// Проверяем результат
+	// Verify the result
 	if !result {
 		t.Errorf("Expected IsUrlOk to return true, but got false")
 	}
 }
 
-// TestIsUrlOkUnhealthy проверяет, что метод IsUrlOk возвращает false для некорректного URL
+// TestIsUrlOkUnhealthy verifies that IsUrlOk returns false for an invalid URL
 func TestIsUrlOkUnhealthy(t *testing.T) {
-	// Создаем фейковый HTTP-клиент, который отвечает 404 Not Found
+	// Create a fake HTTP client that responds with 404 Not Found
 	mockClient := &MockHTTPClient{
 		DoFunc: func(req *http.Request) (*http.Response, error) {
 			return &http.Response{
@@ -59,40 +59,40 @@ func TestIsUrlOkUnhealthy(t *testing.T) {
 		},
 	}
 
-	// Создаем экземпляр RealURLChecker
+	// Create an instance of RealURLChecker
 	checker := RealURLChecker{}
 
-	// Вызываем метод IsUrlOk
+	// Call the IsUrlOk method
 	url := "http://example.com"
 	unhealthyThreshold := 1
 	unhealthyDelay := 1
 	result := checker.IsUrlOk(url, unhealthyThreshold, unhealthyDelay, mockClient)
 
-	// Проверяем результат
+	// Verify the result
 	if result {
 		t.Errorf("Expected IsUrlOk to return false, but got true")
 	}
 }
 
-// TestIsUrlOkUnreachable проверяет, что метод IsUrlOk возвращает false для недоступного URL
+// TestIsUrlOkUnreachable verifies that IsUrlOk returns false for an unreachable URL
 func TestIsUrlOkUnreachable(t *testing.T) {
-	// Создаем фейковый HTTP-клиент, который всегда возвращает ошибку
+	// Create a fake HTTP client that always returns an error
 	mockClient := &MockHTTPClient{
 		DoFunc: func(req *http.Request) (*http.Response, error) {
 			return nil, http.ErrNoLocation
 		},
 	}
 
-	// Создаем экземпляр RealURLChecker
+	// Create an instance of RealURLChecker
 	checker := RealURLChecker{}
 
-	// Вызываем метод IsUrlOk
+	// Call the IsUrlOk method
 	url := "http://example.com"
 	unhealthyThreshold := 1
 	unhealthyDelay := 1
 	result := checker.IsUrlOk(url, unhealthyThreshold, unhealthyDelay, mockClient)
 
-	// Проверяем результат
+	// Verify the result
 	if result {
 		t.Errorf("Expected IsUrlOk to return false, but got true")
 	}

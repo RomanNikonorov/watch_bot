@@ -23,10 +23,10 @@ func (b *TelegramBot) ListenIncomingMessages(ctx context.Context, messages chan 
 	}
 	for {
 		select {
-		case <-ctx.Done(): // Завершаем работу при отмене контекста
+		case <-ctx.Done(): // Stop on context cancellation
 			log.Println("Stopping ListenIncomingMessages:", ctx.Err())
 			return
-		case update := <-updates: // Обрабатываем входящие сообщения
+		case update := <-updates: // Process incoming messages
 			if update.Message != nil {
 				log.Printf("Received message: %s from user id %d", update.Message.Text, update.Message.Chat.ID)
 				chatId := strconv.FormatInt(update.Message.Chat.ID, 10)

@@ -48,7 +48,7 @@ func (r *CommandRouter) Handle(cmd Command) (string, error) {
 
 func (r *CommandRouter) unknownCommandResponse() string {
 	var sb strings.Builder
-	sb.WriteString("Неизвестная команда. Доступные команды:\n")
+	sb.WriteString("Unknown command. Available commands:\n")
 	for name, desc := range r.GetRegisteredCommands() {
 		sb.WriteString("\\" + name + " - " + desc + "\n")
 	}
@@ -61,7 +61,7 @@ func (r *CommandRouter) Listen(commandChannel chan Command, messagesChannel chan
 		response, err := r.Handle(cmd)
 		if err != nil {
 			log.Printf("Error handling command %s: %v", cmd.Name, err)
-			response = "Произошла ошибка при выполнении команды"
+			response = "An error occurred while executing the command"
 		}
 		messagesChannel <- Message{
 			ChatId: cmd.ChatId,

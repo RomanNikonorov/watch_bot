@@ -27,21 +27,21 @@ func (d *DutyCommand) Execute(cmd bots.Command) (string, error) {
 		return "", fmt.Errorf("failed to get current duty: %w", err)
 	}
 	if result == nil {
-		return "Дежурный на сегодня не назначен", nil
+		return "No duty assigned for today", nil
 	}
 
-	// Отправляем уведомление дежурному через канал
+	// Send notification to the duty person via channel
 	if d.messagesChan != nil {
 		d.messagesChan <- bots.Message{
 			ChatId: result.DutyID,
-			Text:   "Сегодня ты дежурный!",
+			Text:   "You are on duty today!",
 		}
 	}
 
-	return "Команда разработки спешит на помощь!", nil
+	return "The development team is rushing to help!", nil
 }
 
 // Description returns command description
 func (d *DutyCommand) Description() string {
-	return "показать текущего дежурного"
+	return "show current duty person"
 }
