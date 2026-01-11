@@ -3,6 +3,7 @@ package bots
 import (
 	"context"
 	"log"
+	"strconv"
 	"strings"
 )
 
@@ -103,7 +104,7 @@ func ParseCommand(text string, chatId string) *Command {
 
 	// Parse remaining parts as positional params
 	for i, part := range parts[1:] {
-		cmd.Params[string(rune('0'+i))] = part
+		cmd.Params[strconv.Itoa(i)] = part
 	}
 
 	return cmd

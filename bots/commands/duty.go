@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"log"
 	"watch_bot/bots"
 	"watch_bot/duty"
 )
@@ -30,11 +31,16 @@ func (d *DutyCommand) Execute(cmd bots.Command) (string, error) {
 		return "No duty assigned for today", nil
 	}
 
-	// Send notification to the duty person via channel
+	// Send notification to the duty person via channel (non-blocking)
 	if d.messagesChan != nil {
-		d.messagesChan <- bots.Message{
+		select {
+		case d.messagesChan <- bots.Message{
 			ChatId: result.DutyID,
 			Text:   "You are on duty today!",
+		}:
+			// Message sent successfully
+		default:
+			log.Printf("Warning: failed to send notification to duty person %s: channel buffer full", result.DutyID)
 		}
 	}
 
