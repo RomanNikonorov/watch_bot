@@ -39,14 +39,14 @@ func (b *TelegramBot) ListenIncomingMessages(ctx context.Context, messages chan 
 	}
 }
 
-func (b *TelegramBot) CreateBot(tx context.Context, commandChannel chan Command, botToken string, messagesChannel chan Message, retryCount int, retryPause int) WatchBot {
+func (b *TelegramBot) CreateBot(ctx context.Context, commandChannel chan Command, botToken string, messagesChannel chan Message, retryCount int, retryPause int) WatchBot {
 	bot, err := tgbotapi.NewBotAPI(botToken)
 	if err != nil {
 		log.Fatal("wrong parameters for bot creation :", err)
 	}
 	b.Bot = bot
 	go b.ListenMessagesToSend(messagesChannel, retryCount, retryPause)
-	go b.ListenIncomingMessages(context.Background(), commandChannel)
+	go b.ListenIncomingMessages(ctx, commandChannel)
 	return b
 }
 
