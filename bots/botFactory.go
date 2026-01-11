@@ -1,8 +1,11 @@
 package bots
 
-import "log"
+import (
+	"context"
+	"log"
+)
 
-func CreateBot(settings BotSettings) {
+func CreateBot(ctx context.Context, settings BotSettings) WatchBot {
 	var bot WatchBot
 	switch settings.BotType {
 	case "vk":
@@ -13,7 +16,7 @@ func CreateBot(settings BotSettings) {
 	default:
 		log.Fatal("unsupported bot type")
 	}
-	bot.CreateBot(settings.BotToken, settings.MessagesChannel, settings.RetryCount, settings.RetryPause)
+	return bot.CreateBot(ctx, settings.CommandsChannel, settings.BotToken, settings.MessagesChannel, settings.RetryCount, settings.RetryPause)
 }
 
 type BotSettings struct {
@@ -22,6 +25,7 @@ type BotSettings struct {
 	MainChatId      string
 	BotType         string
 	MessagesChannel chan Message
+	CommandsChannel chan Command
 	RetryCount      int
 	RetryPause      int
 }
@@ -29,4 +33,10 @@ type BotSettings struct {
 type Message struct {
 	ChatId string
 	Text   string
+}
+
+type Command struct {
+	Name   string
+	ChatId string
+	Params map[string]string
 }

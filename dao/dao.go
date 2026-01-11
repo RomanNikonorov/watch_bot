@@ -3,8 +3,9 @@ package dao
 import (
 	"database/sql"
 	"fmt"
-	_ "github.com/lib/pq"
 	"time"
+
+	_ "github.com/lib/pq"
 
 	"watch_bot/watch"
 )
@@ -97,4 +98,71 @@ func GetServers(connStr string) ([]watch.Server, error) {
 	}
 
 	return servers, nil
+}
+
+// Duty represents a person on duty
+type Duty struct {
+	ID           int64
+	DutyID       string
+	LastDutyDate *time.Time
+}
+
+// GetAllDuties retrieves all duty records from the database
+func GetAllDuties(connStr string) ([]Duty, error) {
+	db, err := getDb(connStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get db: %w", err)
+	}
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			fmt.Printf("failed to close database connection: %v", err)
+		}
+	}(db)
+
+	rows, err := db.Query("SELECT id, duty_id, last_duty_date FROM duties ORDER BY duty_id ASC")
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute query: %w", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			fmt.Printf("failed to close rows: %v", err)
+		}
+	}(rows)
+
+	var duties []Duty
+	for rows.Next() {
+		var duty Duty
+		if err := rows.Scan(&duty.ID, &duty.DutyID, &duty.LastDutyDate); err != nil {
+			return nil, fmt.Errorf("failed to scan row: %w", err)
+		}
+		duties = append(duties, duty)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error occurred during row iteration: %w", err)
+	}
+
+	return duties, nil
+}
+
+// UpdateDutyDate updates the last_duty_date for a duty record
+func UpdateDutyDate(connStr string, dutyID int64, date time.Time) error {
+	db, err := getDb(connStr)
+	if err != nil {
+		return fmt.Errorf("failed to get db: %w", err)
+	}
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			fmt.Printf("failed to close database connection: %v", err)
+		}
+	}(db)
+
+	_, err = db.Exec("UPDATE duties SET last_duty_date = $1 WHERE id = $2", date, dutyID)
+	if err != nil {
+		return fmt.Errorf("failed to update duty date: %w", err)
+	}
+	return nil
 }

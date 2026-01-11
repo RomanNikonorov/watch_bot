@@ -3,10 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"gopkg.in/Graylog2/go-gelf.v1/gelf"
 	"io"
 	"log"
 	"net/http"
@@ -17,10 +13,16 @@ import (
 	"syscall"
 	"time"
 	"watch_bot/bots"
+	"watch_bot/bots/commands"
 	"watch_bot/dao"
 	"watch_bot/lib"
 	"watch_bot/watch"
 	"watch_bot/working_calendar"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"gopkg.in/Graylog2/go-gelf.v1/gelf"
 )
 
 func main() {
@@ -61,12 +63,15 @@ func main() {
 	probeTimeout := lib.GetEnvVariableValueWithDefault("PROBE_TIMEOUT", "3")
 
 	botMessagesChannel := make(chan bots.Message)
+	botCommandsChannel := make(chan bots.Command)
+
 	settings := bots.BotSettings{
 		BotToken:        botToken,
 		BotApiUrl:       botApiUrl,
 		MainChatId:      mainChatId,
 		BotType:         botType,
 		MessagesChannel: botMessagesChannel,
+		CommandsChannel: botCommandsChannel,
 		RetryCount:      retryCount,
 		RetryPause:      retryPause,
 	}
@@ -78,7 +83,17 @@ func main() {
 	}
 
 	watchTowerLivenessChannelsMap := make(map[string]chan string)
-	bots.CreateBot(settings)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	bots.CreateBot(ctx, settings)
+
+	// Initialize command router
+	commandRouter := bots.NewCommandRouter()
+	commandRouter.Register("duty", commands.NewDutyCommand(connectionStr, botMessagesChannel))
+	go commandRouter.Listen(ctx, botCommandsChannel, botMessagesChannel)
+
 	for _, server := range servers {
 		watchTowerLivenessChannelsMap[server.Name] = make(chan string)
 		config := watch.DogConfig{
@@ -98,13 +113,12 @@ func main() {
 	}
 
 	// graceful shutdown
-	_, cancel := context.WithCancel(context.Background())
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
-		s := <-sigCh
+		s := <-signalChan
 		log.Printf("got signal %v, attempting graceful shutdown", s)
 		cancel()
 		wg.Done()

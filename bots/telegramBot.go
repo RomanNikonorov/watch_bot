@@ -1,24 +1,52 @@
 package bots
 
 import (
+	"context"
 	"fmt"
-	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"log"
 	"strconv"
 	"time"
+
+	"github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
 type TelegramBot struct {
 	Bot *tgbotapi.BotAPI
 }
 
-func (b *TelegramBot) CreateBot(botToken string, messagesChannel chan Message, retryCount int, retryPause int) WatchBot {
+func (b *TelegramBot) ListenIncomingMessages(ctx context.Context, messages chan Command) {
+	u := tgbotapi.NewUpdate(0)
+	u.Timeout = 60
+	updates, err := b.Bot.GetUpdatesChan(u)
+	if err != nil {
+		log.Fatal("Failed to get updates channel:", err)
+	}
+	for {
+		select {
+		case <-ctx.Done(): // Stop on context cancellation
+			log.Println("Stopping ListenIncomingMessages:", ctx.Err())
+			return
+		case update := <-updates: // Process incoming messages
+			if update.Message != nil {
+				log.Printf("Received message: %s from user id %d", update.Message.Text, update.Message.Chat.ID)
+				chatId := strconv.FormatInt(update.Message.Chat.ID, 10)
+				cmd := ParseCommand(update.Message.Text, chatId)
+				if cmd != nil {
+					messages <- *cmd
+				}
+			}
+		}
+	}
+}
+
+func (b *TelegramBot) CreateBot(ctx context.Context, commandChannel chan Command, botToken string, messagesChannel chan Message, retryCount int, retryPause int) WatchBot {
 	bot, err := tgbotapi.NewBotAPI(botToken)
 	if err != nil {
 		log.Fatal("wrong parameters for bot creation :", err)
 	}
 	b.Bot = bot
 	go b.ListenMessagesToSend(messagesChannel, retryCount, retryPause)
+	go b.ListenIncomingMessages(ctx, commandChannel)
 	return b
 }
 
