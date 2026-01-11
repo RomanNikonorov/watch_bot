@@ -92,7 +92,7 @@ func main() {
 	// Initialize command router
 	commandRouter := bots.NewCommandRouter()
 	commandRouter.Register("duty", commands.NewDutyCommand(connectionStr, botMessagesChannel))
-	go commandRouter.Listen(botCommandsChannel, botMessagesChannel)
+	go commandRouter.Listen(ctx, botCommandsChannel, botMessagesChannel)
 
 	for _, server := range servers {
 		watchTowerLivenessChannelsMap[server.Name] = make(chan string)

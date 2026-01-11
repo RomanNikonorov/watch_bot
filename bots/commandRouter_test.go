@@ -1,7 +1,9 @@
 package bots
 
 import (
+	"context"
 	"testing"
+	"time"
 )
 
 func TestParseCommand_ValidCommand(t *testing.T) {
@@ -172,3 +174,70 @@ func TestCommandRouter_GetRegisteredCommands(t *testing.T) {
 		t.Error("expected cmd2 to be registered")
 	}
 }
+
+func TestCommandRouter_Listen_ContextCancellation(t *testing.T) {
+	router := NewCommandRouter()
+	router.Register("test", &mockHandler{response: "test response", err: nil})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	commandChan := make(chan Command, 1)
+	messageChan := make(chan Message, 1)
+
+	// Start the listener
+	done := make(chan bool)
+	go func() {
+		router.Listen(ctx, commandChan, messageChan)
+		done <- true
+	}()
+
+	// Send a command to verify it works
+	commandChan <- Command{Name: "test", ChatId: "123", Params: map[string]string{}}
+
+	// Wait for response
+	select {
+	case msg := <-messageChan:
+		if msg.Text != "test response" {
+			t.Errorf("expected 'test response', got '%s'", msg.Text)
+		}
+	case <-time.After(1 * time.Second):
+		t.Fatal("timeout waiting for command response")
+	}
+
+	// Cancel context and verify Listen returns
+	cancel()
+
+	select {
+	case <-done:
+		// Success - Listen returned after context cancellation
+	case <-time.After(1 * time.Second):
+		t.Fatal("Listen did not return after context cancellation")
+	}
+}
+
+func TestCommandRouter_Listen_ChannelClosed(t *testing.T) {
+	router := NewCommandRouter()
+	router.Register("test", &mockHandler{response: "test response", err: nil})
+
+	ctx := context.Background()
+	commandChan := make(chan Command)
+	messageChan := make(chan Message, 1)
+
+	// Start the listener
+	done := make(chan bool)
+	go func() {
+		router.Listen(ctx, commandChan, messageChan)
+		done <- true
+	}()
+
+	// Close the command channel
+	close(commandChan)
+
+	// Verify Listen returns when channel is closed
+	select {
+	case <-done:
+		// Success - Listen returned after channel closed
+	case <-time.After(1 * time.Second):
+		t.Fatal("Listen did not return after channel closed")
+	}
+}
+
