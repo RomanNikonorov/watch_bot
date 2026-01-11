@@ -21,7 +21,7 @@ func NewService(connectionStr string) *Service {
 
 // DutyResult contains information about the current duty person
 type DutyResult struct {
-	DutyID string // ID чата дежурного
+	DutyID string // ID of the duty chat
 }
 
 // GetCurrentDuty returns the current duty person and updates the database if needed
