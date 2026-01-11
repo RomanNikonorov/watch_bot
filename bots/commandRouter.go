@@ -1,6 +1,7 @@
 package bots
 
 import (
+	"context"
 	"log"
 	"strings"
 )
@@ -56,16 +57,25 @@ func (r *CommandRouter) unknownCommandResponse() string {
 }
 
 // Listen starts listening for commands and sends responses
-func (r *CommandRouter) Listen(commandChannel chan Command, messagesChannel chan Message) {
-	for cmd := range commandChannel {
-		response, err := r.Handle(cmd)
-		if err != nil {
-			log.Printf("Error handling command %s: %v", cmd.Name, err)
-			response = "An error occurred while executing the command"
-		}
-		messagesChannel <- Message{
-			ChatId: cmd.ChatId,
-			Text:   response,
+func (r *CommandRouter) Listen(ctx context.Context, commandChannel chan Command, messagesChannel chan Message) {
+	for {
+		select {
+		case <-ctx.Done(): // Stop on context cancellation
+			log.Println("Stopping CommandRouter.Listen:", ctx.Err())
+			return
+		case cmd, ok := <-commandChannel:
+			if !ok {
+				return
+			}
+			response, err := r.Handle(cmd)
+			if err != nil {
+				log.Printf("Error handling command %s: %v", cmd.Name, err)
+				response = "An error occurred while executing the command"
+			}
+			messagesChannel <- Message{
+				ChatId: cmd.ChatId,
+				Text:   response,
+			}
 		}
 	}
 }
