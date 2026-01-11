@@ -74,9 +74,16 @@ func (r *CommandRouter) Listen(ctx context.Context, commandChannel chan Command,
 				log.Printf("Error handling command %s: %v", cmd.Name, err)
 				response = "Произошла ошибка при выполнении команды"
 			}
-			messagesChannel <- Message{
+			
+			// Send response with context awareness
+			select {
+			case messagesChannel <- Message{
 				ChatId: cmd.ChatId,
 				Text:   response,
+			}:
+			case <-ctx.Done():
+				log.Println("Command router shutting down while sending response")
+				return
 			}
 		}
 	}
