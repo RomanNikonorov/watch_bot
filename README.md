@@ -32,7 +32,9 @@ WatchBot is a monitoring tool that checks the liveness of servers and sends noti
 ### Logging
 - `GRAYLOG_ADDR`: Graylog server address (optional)
 
+## Bot Commands
 
+- `/duty` - Show current duty person. When called, the bot will return a message indicating help is on the way and notify the person on duty.
 
 ## SQL Script for Creating Database
 
@@ -48,5 +50,12 @@ create table unusual_days
 (
 id bigserial constraint unusual_days_pk primary key,
 unusual_date date not null
+);
+
+create table duties
+(
+id bigserial constraint duties_pk primary key,
+duty_id text not null,
+last_duty_date date
 );
 
