@@ -1,9 +1,21 @@
 package commands
 
 import (
+	"strings"
 	"testing"
 	"watch_bot/bots"
+	"watch_bot/duty"
 )
+
+// mockDutyService is a test double for dutyServicer
+type mockDutyService struct {
+	result *duty.DutyResult
+	err    error
+}
+
+func (m *mockDutyService) GetCurrentDuty() (*duty.DutyResult, error) {
+	return m.result, m.err
+}
 
 func TestDutyCommand_Description(t *testing.T) {
 	cmd := NewDutyCommand(DutyCommandConfig{
@@ -31,5 +43,38 @@ func TestDutyCommand_Execute_NoConnection(t *testing.T) {
 	// Should return error due to invalid connection
 	if err == nil {
 		t.Error("expected error for invalid connection string")
+	}
+}
+
+func TestDutyCommand_Execute_SupportChatMessageContainsAtPrefix(t *testing.T) {
+	messagesChan := make(chan bots.Message, 10)
+	cmd := &DutyCommand{
+		dutyService:   &mockDutyService{result: &duty.DutyResult{DutyID: "johndoe"}},
+		messagesChan:  messagesChan,
+		supportChatId: "support-123",
+	}
+
+	_, err := cmd.Execute(bots.Command{
+		Name:   "duty",
+		ChatId: "caller-456",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	close(messagesChan)
+
+	var supportMsg *bots.Message
+	for msg := range messagesChan {
+		if msg.ChatId == "support-123" {
+			msg := msg
+			supportMsg = &msg
+		}
+	}
+	if supportMsg == nil {
+		t.Fatal("expected a message to be sent to the support chat")
+	}
+	if !strings.Contains(supportMsg.Text, "@johndoe") {
+		t.Errorf("expected support chat message to contain @johndoe, got: %s", supportMsg.Text)
 	}
 }
