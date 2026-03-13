@@ -74,8 +74,8 @@ func TestDutyCommand_Execute_SupportChatMessageContainsAtPrefix(t *testing.T) {
 	if supportMsg == nil {
 		t.Fatal("expected a message to be sent to the support chat")
 	}
-	// Check that message contains mention in MarkdownV2 format
-	expectedMention := "@[johndoe](mention://johndoe)"
+	// Check that message contains mention in MarkdownV2 format (without @ prefix)
+	expectedMention := "[johndoe](mention://johndoe)"
 	if !strings.Contains(supportMsg.Text, expectedMention) {
 		t.Errorf("expected support chat message to contain %s, got: %s", expectedMention, supportMsg.Text)
 	}
