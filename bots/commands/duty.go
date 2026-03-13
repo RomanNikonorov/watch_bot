@@ -5,6 +5,8 @@ import (
 	"log"
 	"watch_bot/bots"
 	"watch_bot/duty"
+
+	botgolang "github.com/mail-ru-im/bot-golang"
 )
 
 // DutyCommandConfig contains configuration for the duty command
@@ -59,13 +61,13 @@ func (d *DutyCommand) Execute(cmd bots.Command) (string, error) {
 
 		// Send notification to support chat about who is on duty
 		if d.supportChatId != "" {
-			// Use @[userId] format for mentions in VK Teams
+			// Use @[userId] format for mentions in VK Teams with HTML ParseMode
 			notificationText := fmt.Sprintf("⚠️ Duty person called!\n\nOn duty today: @[%s]", result.DutyID)
 			select {
 			case d.messagesChan <- bots.Message{
 				ChatId:    d.supportChatId,
 				Text:      notificationText,
-				ParseMode: "MarkdownV2",
+				ParseMode: string(botgolang.ParseModeHTML),
 			}:
 				// Message sent successfully
 			default:

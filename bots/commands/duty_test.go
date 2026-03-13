@@ -79,4 +79,8 @@ func TestDutyCommand_Execute_SupportChatMessageContainsAtPrefix(t *testing.T) {
 	if !strings.Contains(supportMsg.Text, expectedMention) {
 		t.Errorf("expected support chat message to contain %s, got: %s", expectedMention, supportMsg.Text)
 	}
+	// Check that ParseMode is set to HTML
+	if supportMsg.ParseMode != "HTML" {
+		t.Errorf("expected ParseMode to be HTML, got: %s", supportMsg.ParseMode)
+	}
 }
