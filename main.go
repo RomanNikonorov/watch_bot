@@ -63,7 +63,7 @@ func main() {
 	// probe timeout
 	probeTimeout := lib.GetEnvVariableValueWithDefault("PROBE_TIMEOUT", "3")
 
-	botMessagesChannel := make(chan bots.Message)
+	botMessagesChannel := make(chan bots.Message, 100)
 	botCommandsChannel := make(chan bots.Command)
 
 	settings := bots.BotSettings{
