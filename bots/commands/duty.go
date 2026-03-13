@@ -7,17 +7,26 @@ import (
 	"watch_bot/duty"
 )
 
+// DutyCommandConfig contains configuration for the duty command
+type DutyCommandConfig struct {
+	ConnectionStr string
+	MessagesChan  chan bots.Message
+	SupportChatId string
+}
+
 // DutyCommand handles the \duty command
 type DutyCommand struct {
-	dutyService  *duty.Service
-	messagesChan chan bots.Message
+	dutyService   *duty.Service
+	messagesChan  chan bots.Message
+	supportChatId string
 }
 
 // NewDutyCommand creates a new DutyCommand
-func NewDutyCommand(connectionStr string, messagesChan chan bots.Message) *DutyCommand {
+func NewDutyCommand(config DutyCommandConfig) *DutyCommand {
 	return &DutyCommand{
-		dutyService:  duty.NewService(connectionStr),
-		messagesChan: messagesChan,
+		dutyService:   duty.NewService(config.ConnectionStr),
+		messagesChan:  config.MessagesChan,
+		supportChatId: config.SupportChatId,
 	}
 }
 
@@ -41,6 +50,20 @@ func (d *DutyCommand) Execute(cmd bots.Command) (string, error) {
 			// Message sent successfully
 		default:
 			log.Printf("Warning: failed to send notification to duty person %s: channel buffer full", result.DutyID)
+		}
+
+		// Send notification to support chat about who is on duty
+		if d.supportChatId != "" {
+			notificationText := fmt.Sprintf("⚠️ Duty person called!\n\nOn duty today: %s", result.DutyID)
+			select {
+			case d.messagesChan <- bots.Message{
+				ChatId: d.supportChatId,
+				Text:   notificationText,
+			}:
+				// Message sent successfully
+			default:
+				log.Printf("Warning: failed to send notification to support chat %s: channel buffer full", d.supportChatId)
+			}
 		}
 	}
 

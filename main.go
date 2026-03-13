@@ -41,6 +41,7 @@ func main() {
 	botToken := os.Getenv("BOT_TOKEN")
 	botApiUrl := os.Getenv("BOT_API_URL")
 	mainChatId := os.Getenv("MAIN_CHAT_ID")
+	supportChatId := os.Getenv("SUPPORT_CHAT_ID")
 	botType := os.Getenv("BOT_TYPE")
 
 	// delay between probes
@@ -69,6 +70,7 @@ func main() {
 		BotToken:        botToken,
 		BotApiUrl:       botApiUrl,
 		MainChatId:      mainChatId,
+		SupportChatId:   supportChatId,
 		BotType:         botType,
 		MessagesChannel: botMessagesChannel,
 		CommandsChannel: botCommandsChannel,
@@ -91,7 +93,11 @@ func main() {
 
 	// Initialize command router
 	commandRouter := bots.NewCommandRouter()
-	commandRouter.Register("duty", commands.NewDutyCommand(connectionStr, botMessagesChannel))
+	commandRouter.Register("duty", commands.NewDutyCommand(commands.DutyCommandConfig{
+		ConnectionStr: connectionStr,
+		MessagesChan:  botMessagesChannel,
+		SupportChatId: settings.SupportChatId,
+	}))
 	go commandRouter.Listen(ctx, botCommandsChannel, botMessagesChannel)
 
 	for _, server := range servers {

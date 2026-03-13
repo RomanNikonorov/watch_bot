@@ -11,6 +11,7 @@ WatchBot is a monitoring tool that checks the liveness of servers and sends noti
 - `BOT_TOKEN`: Bot token
 - `BOT_API_URL`: Bot API URL
 - `MAIN_CHAT_ID`: Main chat ID for notifications
+- `SUPPORT_CHAT_ID`: Support chat ID for duty notifications (required for duty command)
 - `BOT_TYPE`: Type of bot to use (can be `telegram` or `vk`)
 - `RETRY_COUNT`: Number of attempts to send a message (default: 3)
 - `RETRY_PAUSE`: Pause between retry attempts in seconds (default: 5)
@@ -34,7 +35,10 @@ WatchBot is a monitoring tool that checks the liveness of servers and sends noti
 
 ## Bot Commands
 
-- `/duty` - Show current duty person. When called, the bot will return a message indicating help is on the way and notify the person on duty.
+- `/duty` - Show current duty person. When called, the bot will:
+  - Return a message indicating help is on the way
+  - Notify the person on duty
+  - Send a notification to the support chat indicating who is on duty today
 
 ## SQL Script for Creating Database
 

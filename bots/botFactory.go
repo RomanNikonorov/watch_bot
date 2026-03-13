@@ -23,6 +23,7 @@ type BotSettings struct {
 	BotToken        string
 	BotApiUrl       string
 	MainChatId      string
+	SupportChatId   string
 	BotType         string
 	MessagesChannel chan Message
 	CommandsChannel chan Command
