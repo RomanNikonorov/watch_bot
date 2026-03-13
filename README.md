@@ -39,6 +39,7 @@ WatchBot is a monitoring tool that checks the liveness of servers and sends noti
   - Return a message indicating help is on the way
   - Notify the person on duty
   - Send a notification to the support chat indicating who is on duty today
+  - **Note**: For VK Teams, user mentions use MarkdownV2 format: `@[userId](mention://userId)` to properly tag users
 
 ## SQL Script for Creating Database
 

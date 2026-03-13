@@ -32,8 +32,9 @@ type BotSettings struct {
 }
 
 type Message struct {
-	ChatId string
-	Text   string
+	ChatId    string
+	Text      string
+	ParseMode string // "HTML" or "MarkdownV2" for VK Teams
 }
 
 type Command struct {

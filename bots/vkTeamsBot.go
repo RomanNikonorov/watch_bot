@@ -45,6 +45,10 @@ func (b VkTeamsBot) CreateBot(ctx context.Context, commandChannel chan Command, 
 func (b VkTeamsBot) ListenMessagesToSend(messagesChannel chan Message, retryCount int, retryPause int) {
 	for message := range messagesChannel {
 		botMessage := b.Bot.NewTextMessage(message.ChatId, message.Text)
+		// Apply ParseMode if specified
+		if message.ParseMode != "" {
+			botMessage.AppendParseMode(botgolang.ParseMode(message.ParseMode))
+		}
 		vkSendWithRetry(botMessage.Send, retryCount, retryPause)
 	}
 }

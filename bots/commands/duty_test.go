@@ -74,7 +74,13 @@ func TestDutyCommand_Execute_SupportChatMessageContainsAtPrefix(t *testing.T) {
 	if supportMsg == nil {
 		t.Fatal("expected a message to be sent to the support chat")
 	}
-	if !strings.Contains(supportMsg.Text, "@johndoe") {
-		t.Errorf("expected support chat message to contain @johndoe, got: %s", supportMsg.Text)
+	// Check that message contains mention in MarkdownV2 format
+	expectedMention := "@[johndoe](mention://johndoe)"
+	if !strings.Contains(supportMsg.Text, expectedMention) {
+		t.Errorf("expected support chat message to contain %s, got: %s", expectedMention, supportMsg.Text)
+	}
+	// Check that ParseMode is set to MarkdownV2
+	if supportMsg.ParseMode != "MarkdownV2" {
+		t.Errorf("expected ParseMode to be MarkdownV2, got: %s", supportMsg.ParseMode)
 	}
 }

@@ -59,11 +59,13 @@ func (d *DutyCommand) Execute(cmd bots.Command) (string, error) {
 
 		// Send notification to support chat about who is on duty
 		if d.supportChatId != "" {
-			notificationText := fmt.Sprintf("⚠️ Duty person called!\n\nOn duty today: @%s", result.DutyID)
+			// Use MarkdownV2 format for mentions: @[userId](mention://userId)
+			notificationText := fmt.Sprintf("⚠️ Duty person called!\n\nOn duty today: @[%s](mention://%s)", result.DutyID, result.DutyID)
 			select {
 			case d.messagesChan <- bots.Message{
-				ChatId: d.supportChatId,
-				Text:   notificationText,
+				ChatId:    d.supportChatId,
+				Text:      notificationText,
+				ParseMode: "MarkdownV2",
 			}:
 				// Message sent successfully
 			default:
