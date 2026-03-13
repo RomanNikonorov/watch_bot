@@ -14,9 +14,14 @@ type DutyCommandConfig struct {
 	SupportChatId string
 }
 
+// dutyServicer is the interface for retrieving current duty information
+type dutyServicer interface {
+	GetCurrentDuty() (*duty.DutyResult, error)
+}
+
 // DutyCommand handles the \duty command
 type DutyCommand struct {
-	dutyService   *duty.Service
+	dutyService   dutyServicer
 	messagesChan  chan bots.Message
 	supportChatId string
 }
@@ -54,7 +59,7 @@ func (d *DutyCommand) Execute(cmd bots.Command) (string, error) {
 
 		// Send notification to support chat about who is on duty
 		if d.supportChatId != "" {
-			notificationText := fmt.Sprintf("⚠️ Duty person called!\n\nOn duty today: %s", result.DutyID)
+			notificationText := fmt.Sprintf("⚠️ Duty person called!\n\nOn duty today: @%s", result.DutyID)
 			select {
 			case d.messagesChan <- bots.Message{
 				ChatId: d.supportChatId,
