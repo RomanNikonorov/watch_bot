@@ -135,7 +135,7 @@ func main() {
 	isReady.Store(true)
 	httpRouter := chi.NewRouter()
 	httpRouter.Use(middleware.RequestID)
-	httpRouter.Use(middleware.Logger)
+	httpRouter.Use(lib.LoggerWithSkipPaths("/health", "/ready"))
 	httpRouter.Use(middleware.Recoverer)
 
 	httpRouter.HandleFunc("/health", lib.Healthz)

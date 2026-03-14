@@ -11,8 +11,10 @@ func CreateBot(ctx context.Context, settings BotSettings) WatchBot {
 	case "vk":
 		bot = &VkTeamsBot{}
 		bot.(*VkTeamsBot).BotApiUrl = settings.BotApiUrl
+		bot.(*VkTeamsBot).MainChatId = settings.MainChatId
 	case "telegram":
 		bot = &TelegramBot{}
+		bot.(*TelegramBot).MainChatId = settings.MainChatId
 	default:
 		log.Fatal("unsupported bot type")
 	}
