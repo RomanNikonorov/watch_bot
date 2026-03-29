@@ -21,7 +21,8 @@ func NewService(connectionStr string) *Service {
 
 // DutyResult contains information about the current duty person
 type DutyResult struct {
-	DutyID string // ID of the duty chat
+	DutyID          string // ID of the duty chat
+	IsNewAssignment bool   // True if duty was just assigned today (first call of the day)
 }
 
 // GetCurrentDuty returns the current duty person and updates the database if needed
@@ -41,8 +42,11 @@ func (s *Service) GetCurrentDuty() (*DutyResult, error) {
 		return nil, nil
 	}
 
+	// Check if this is a new assignment (duty was not yet assigned today)
+	isNewAssignment := duty.LastDutyDate == nil || !isSameDay(*duty.LastDutyDate, currentDate)
+
 	// Check if we need to update the database
-	if duty.LastDutyDate == nil || !isSameDay(*duty.LastDutyDate, currentDate) {
+	if isNewAssignment {
 		err = dao.UpdateDutyDate(s.connectionStr, duty.ID, currentDate)
 		if err != nil {
 			return nil, err
@@ -51,7 +55,8 @@ func (s *Service) GetCurrentDuty() (*DutyResult, error) {
 	}
 
 	return &DutyResult{
-		DutyID: duty.DutyID,
+		DutyID:          duty.DutyID,
+		IsNewAssignment: isNewAssignment,
 	}, nil
 }
 

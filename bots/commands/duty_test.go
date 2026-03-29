@@ -49,7 +49,7 @@ func TestDutyCommand_Execute_NoConnection(t *testing.T) {
 func TestDutyCommand_Execute_SupportChatMessageContainsAtPrefix(t *testing.T) {
 	messagesChan := make(chan bots.Message, 10)
 	cmd := &DutyCommand{
-		dutyService:   &mockDutyService{result: &duty.DutyResult{DutyID: "johndoe"}},
+		dutyService:   &mockDutyService{result: &duty.DutyResult{DutyID: "johndoe", IsNewAssignment: true}},
 		messagesChan:  messagesChan,
 		supportChatId: "support-123",
 	}
@@ -82,5 +82,36 @@ func TestDutyCommand_Execute_SupportChatMessageContainsAtPrefix(t *testing.T) {
 	// Check that ParseMode is set to HTML
 	if supportMsg.ParseMode != "HTML" {
 		t.Errorf("expected ParseMode to be HTML, got: %s", supportMsg.ParseMode)
+	}
+}
+
+func TestDutyCommand_Execute_NoSupportMessageOnSubsequentCalls(t *testing.T) {
+	messagesChan := make(chan bots.Message, 10)
+	cmd := &DutyCommand{
+		dutyService:   &mockDutyService{result: &duty.DutyResult{DutyID: "johndoe", IsNewAssignment: false}},
+		messagesChan:  messagesChan,
+		supportChatId: "support-123",
+	}
+
+	_, err := cmd.Execute(bots.Command{
+		Name:   "duty",
+		ChatId: "caller-456",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	close(messagesChan)
+
+	var supportMsg *bots.Message
+	for msg := range messagesChan {
+		if msg.ChatId == "support-123" {
+			msg := msg
+			supportMsg = &msg
+		}
+	}
+	// Support message should NOT be sent when IsNewAssignment is false
+	if supportMsg != nil {
+		t.Error("expected NO message to be sent to the support chat on subsequent calls")
 	}
 }

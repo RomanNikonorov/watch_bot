@@ -59,8 +59,8 @@ func (d *DutyCommand) Execute(cmd bots.Command) (string, error) {
 			log.Printf("Warning: failed to send notification to duty person %s: channel buffer full", result.DutyID)
 		}
 
-		// Send notification to support chat about who is on duty
-		if d.supportChatId != "" {
+		// Send notification to support chat about who is on duty (only on first assignment of the day)
+		if d.supportChatId != "" && result.IsNewAssignment {
 			// Use @[userId] format for mentions in VK Teams with HTML ParseMode
 			notificationText := fmt.Sprintf("⚠️ Duty person called!\n\nOn duty today: @[%s]", result.DutyID)
 			select {
