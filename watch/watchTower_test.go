@@ -1,6 +1,7 @@
 package watch
 
 import (
+	"context"
 	"testing"
 	"time"
 	"watch_bot/bots"
@@ -79,7 +80,7 @@ func TestDog(t *testing.T) {
 				DeadProbeDelay:     tt.deadProbeDelay,
 				Checker:            checker,
 			}
-			go Dog(config)
+			go Dog(context.Background(), config)
 
 			for _, msg := range tt.livenessMessages {
 				livenessChannel <- msg
@@ -103,5 +104,32 @@ func TestDog(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestDogStopsOnContextCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	livenessChannel := make(chan string)
+	messagesChannel := make(chan bots.Message, 1)
+
+	config := DogConfig{
+		Server:          Server{Name: "TestServer", URL: "http://example.com"},
+		LivenessChannel: livenessChannel,
+		MessagesChannel: messagesChannel,
+		Checker:         &MockURLChecker{responses: []bool{true}},
+	}
+
+	done := make(chan struct{})
+	go func() {
+		Dog(ctx, config)
+		close(done)
+	}()
+
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("Dog did not stop after context cancellation")
 	}
 }

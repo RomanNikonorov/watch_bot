@@ -1,6 +1,7 @@
 package bots
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -49,7 +50,7 @@ func TestVkSendWithRetry(t *testing.T) {
 			}
 
 			start := time.Now()
-			vkSendWithRetry(sendFunc, tt.retryCount, tt.pause)
+			vkSendWithRetry(context.Background(), sendFunc, tt.retryCount, tt.pause)
 
 			if sendCount != tt.wantTries {
 				t.Errorf("got %d attempts, want %d", sendCount, tt.wantTries)
@@ -61,5 +62,21 @@ func TestVkSendWithRetry(t *testing.T) {
 				t.Errorf("duration %v shorter than expected %v", duration, expectedDuration)
 			}
 		})
+	}
+}
+
+func TestVkSendWithRetryStopsOnContextCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	sendCount := 0
+	sendFunc := func() error {
+		sendCount++
+		cancel()
+		return errors.New("send failed")
+	}
+
+	vkSendWithRetry(ctx, sendFunc, 3, 5)
+
+	if sendCount != 1 {
+		t.Errorf("got %d attempts, want 1", sendCount)
 	}
 }

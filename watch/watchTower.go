@@ -1,6 +1,7 @@
 package watch
 
 import (
+	"context"
 	"crypto/tls"
 	"log"
 	"net/http"
@@ -28,7 +29,7 @@ type DogConfig struct {
 	ChatId             string
 }
 
-func Dog(config DogConfig) {
+func Dog(ctx context.Context, config DogConfig) {
 	isAlive := true
 
 	tr := &http.Transport{
@@ -43,7 +44,12 @@ func Dog(config DogConfig) {
 
 	for {
 		select {
-		case message := <-config.LivenessChannel:
+		case <-ctx.Done():
+			return
+		case message, ok := <-config.LivenessChannel:
+			if !ok {
+				return
+			}
 			if message != config.Server.Name {
 				continue
 			}
@@ -58,9 +64,9 @@ func Dog(config DogConfig) {
 				// mark server as not alive
 				isAlive = false
 				// start goroutine to wait it to wake up
-				go waitForWakeUp(config, waitChannel, client)
+				go waitForWakeUp(ctx, config, waitChannel, client)
 				// notify about server is not OK
-				config.MessagesChannel <- bots.Message{ChatId: config.ChatId, Text: "❌ " + config.Server.Name + " is not responding ❌"}
+				sendMessage(ctx, config.MessagesChannel, bots.Message{ChatId: config.ChatId, Text: "❌ " + config.Server.Name + " is not responding ❌"})
 			}
 		case waitMessage := <-waitChannel:
 			if waitMessage {
@@ -70,27 +76,54 @@ func Dog(config DogConfig) {
 	}
 }
 
-func waitForWakeUp(config DogConfig, waitChan chan bool, client HTTPClient) {
+func waitForWakeUp(ctx context.Context, config DogConfig, waitChan chan bool, client HTTPClient) {
 
 	log.Printf("Start waiting for server %s to wake up with %d probes %d seconds each", config.Server.Name, config.DeadThreshold, config.DeadProbeDelay)
 	for i := 0; i < config.DeadThreshold; i++ {
-		time.Sleep(time.Duration(config.DeadProbeDelay) * time.Second)
-		if checkAndReport(config, client, waitChan) {
+		if !waitForDuration(ctx, time.Duration(config.DeadProbeDelay)*time.Second) {
+			return
+		}
+		if checkAndReport(ctx, config, client, waitChan) {
 			return
 		}
 		log.Printf("Server %s is still dead after %d probes", config.Server.Name, i+1)
 	}
 	pauseMinutes := config.DeadPause
-	config.MessagesChannel <- bots.Message{ChatId: config.ChatId, Text: "🆘☠️ " + config.Server.Name + " is offline, pause watching it for " + strconv.Itoa(pauseMinutes) + " minutes ☠️🆘"}
-	time.Sleep(time.Duration(pauseMinutes) * time.Minute)
-	checkAndReport(config, client, waitChan)
+	sendMessage(ctx, config.MessagesChannel, bots.Message{ChatId: config.ChatId, Text: "🆘☠️ " + config.Server.Name + " is offline, pause watching it for " + strconv.Itoa(pauseMinutes) + " minutes ☠️🆘"})
+	if !waitForDuration(ctx, time.Duration(pauseMinutes)*time.Minute) {
+		return
+	}
+	checkAndReport(ctx, config, client, waitChan)
 }
 
-func checkAndReport(config DogConfig, client HTTPClient, waitChan chan bool) bool {
+func checkAndReport(ctx context.Context, config DogConfig, client HTTPClient, waitChan chan bool) bool {
 	isOk := config.Checker.IsUrlOk(config.Server.URL, config.UnhealthyThreshold, config.UnhealthyDelay, client)
 	if isOk {
-		config.MessagesChannel <- bots.Message{ChatId: config.ChatId, Text: "✅ " + config.Server.Name + " is responding ✅"}
-		waitChan <- true
+		sendMessage(ctx, config.MessagesChannel, bots.Message{ChatId: config.ChatId, Text: "✅ " + config.Server.Name + " is responding ✅"})
+		select {
+		case <-ctx.Done():
+			return false
+		case waitChan <- true:
+		}
 	}
 	return isOk
+}
+
+func waitForDuration(ctx context.Context, duration time.Duration) bool {
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return true
+	}
+}
+
+func sendMessage(ctx context.Context, messages chan bots.Message, message bots.Message) {
+	select {
+	case <-ctx.Done():
+	case messages <- message:
+	}
 }

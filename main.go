@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -115,20 +114,8 @@ func main() {
 			DeadPause:          deadPause,
 			ProbeTimeout:       probeTimeout,
 		}
-		go watch.Dog(config)
+		go watch.Dog(ctx, config)
 	}
-
-	// graceful shutdown
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		s := <-signalChan
-		log.Printf("got signal %v, attempting graceful shutdown", s)
-		cancel()
-		wg.Done()
-	}()
 
 	// metrics & probes
 	isReady := &atomic.Value{}
@@ -142,10 +129,29 @@ func main() {
 	httpRouter.HandleFunc("/ready", lib.Readyz(isReady))
 	httpRouter.Handle("/metrics", promhttp.Handler())
 
+	httpServer := &http.Server{
+		Addr:    ":9000",
+		Handler: httpRouter,
+	}
+
 	go func() {
-		err := http.ListenAndServe(":9000", httpRouter)
-		if err != nil {
+		err := httpServer.ListenAndServe()
+		if err != nil && err != http.ErrServerClosed {
 			log.Fatal(err)
+		}
+	}()
+
+	// graceful shutdown
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(signalChan)
+
+	go func() {
+		select {
+		case <-ctx.Done():
+		case s := <-signalChan:
+			log.Printf("got signal %v, attempting graceful shutdown", s)
+			cancel()
 		}
 	}()
 
@@ -158,12 +164,38 @@ func main() {
 	if err != nil {
 		log.Printf("Error getting unusual days: %v", err)
 	}
+
+	ticker := time.NewTicker(time.Duration(probeDelay) * time.Second)
+	defer ticker.Stop()
+
 	for {
-		time.Sleep(time.Duration(probeDelay) * time.Second)
-		for _, server := range servers {
-			if working_calendar.IsWorkingTime(workingCalendar, time.Now(), unusualDays) {
-				watchTowerLivenessChannelsMap[server.Name] <- server.Name
+		select {
+		case <-ctx.Done():
+			shutdownHTTPServer(httpServer, isReady)
+			return
+		case <-ticker.C:
+			for _, server := range servers {
+				if !working_calendar.IsWorkingTime(workingCalendar, time.Now(), unusualDays) {
+					continue
+				}
+				select {
+				case <-ctx.Done():
+					shutdownHTTPServer(httpServer, isReady)
+					return
+				case watchTowerLivenessChannelsMap[server.Name] <- server.Name:
+				}
 			}
 		}
+	}
+}
+
+func shutdownHTTPServer(httpServer *http.Server, isReady *atomic.Value) {
+	isReady.Store(false)
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		log.Printf("HTTP server shutdown error: %v", err)
 	}
 }
