@@ -53,6 +53,10 @@ func Dog(ctx context.Context, config DogConfig) {
 			if message != config.Server.Name {
 				continue
 			}
+			if !isAlive {
+				// Recovery checks are handled by waitForWakeUp until the server is healthy again.
+				continue
+			}
 			// if we think server is alive and it is really alive
 			isNowOk := config.Checker.IsUrlOk(config.Server.URL, config.UnhealthyThreshold, config.UnhealthyDelay, client)
 			if isAlive && isNowOk {
@@ -77,23 +81,29 @@ func Dog(ctx context.Context, config DogConfig) {
 }
 
 func waitForWakeUp(ctx context.Context, config DogConfig, waitChan chan bool, client HTTPClient) {
-
 	log.Printf("Start waiting for server %s to wake up with %d probes %d seconds each", config.Server.Name, config.DeadThreshold, config.DeadProbeDelay)
-	for i := 0; i < config.DeadThreshold; i++ {
-		if !waitForDuration(ctx, time.Duration(config.DeadProbeDelay)*time.Second) {
+	offlineNotificationSent := false
+
+	for {
+		for i := 0; i < config.DeadThreshold; i++ {
+			if !waitForDuration(ctx, time.Duration(config.DeadProbeDelay)*time.Second) {
+				return
+			}
+			if checkAndReport(ctx, config, client, waitChan) {
+				return
+			}
+			log.Printf("Server %s is still dead after %d probes", config.Server.Name, i+1)
+		}
+
+		pauseMinutes := config.DeadPause
+		if !offlineNotificationSent {
+			sendMessage(ctx, config.MessagesChannel, bots.Message{ChatId: config.ChatId, Text: "🆘☠️ " + config.Server.Name + " is offline, pause watching it for " + strconv.Itoa(pauseMinutes) + " minutes ☠️🆘"})
+			offlineNotificationSent = true
+		}
+		if !waitForDuration(ctx, time.Duration(pauseMinutes)*time.Minute) {
 			return
 		}
-		if checkAndReport(ctx, config, client, waitChan) {
-			return
-		}
-		log.Printf("Server %s is still dead after %d probes", config.Server.Name, i+1)
 	}
-	pauseMinutes := config.DeadPause
-	sendMessage(ctx, config.MessagesChannel, bots.Message{ChatId: config.ChatId, Text: "🆘☠️ " + config.Server.Name + " is offline, pause watching it for " + strconv.Itoa(pauseMinutes) + " minutes ☠️🆘"})
-	if !waitForDuration(ctx, time.Duration(pauseMinutes)*time.Minute) {
-		return
-	}
-	checkAndReport(ctx, config, client, waitChan)
 }
 
 func checkAndReport(ctx context.Context, config DogConfig, client HTTPClient, waitChan chan bool) bool {
