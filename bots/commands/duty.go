@@ -14,6 +14,7 @@ type DutyCommandConfig struct {
 	ConnectionStr string
 	MessagesChan  chan bots.Message
 	SupportChatId string
+	IsWorkingNow  func() bool
 }
 
 // dutyServicer is the interface for retrieving current duty information
@@ -26,6 +27,7 @@ type DutyCommand struct {
 	dutyService   dutyServicer
 	messagesChan  chan bots.Message
 	supportChatId string
+	isWorkingNow  func() bool
 }
 
 // NewDutyCommand creates a new DutyCommand
@@ -34,11 +36,16 @@ func NewDutyCommand(config DutyCommandConfig) *DutyCommand {
 		dutyService:   duty.NewService(config.ConnectionStr),
 		messagesChan:  config.MessagesChan,
 		supportChatId: config.SupportChatId,
+		isWorkingNow:  config.IsWorkingNow,
 	}
 }
 
 // Execute handles the duty command
 func (d *DutyCommand) Execute(cmd bots.Command) (string, error) {
+	if d.isWorkingNow != nil && !d.isWorkingNow() {
+		return "Duty can only be called during working hours", nil
+	}
+
 	result, err := d.dutyService.GetCurrentDuty()
 	if err != nil {
 		return "", fmt.Errorf("failed to get current duty: %w", err)

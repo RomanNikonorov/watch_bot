@@ -115,3 +115,55 @@ func TestDutyCommand_Execute_NoSupportMessageOnSubsequentCalls(t *testing.T) {
 		t.Error("expected NO message to be sent to the support chat on subsequent calls")
 	}
 }
+
+func TestDutyCommand_Execute_RejectsOutsideWorkingHours(t *testing.T) {
+	messagesChan := make(chan bots.Message, 10)
+	cmd := &DutyCommand{
+		dutyService:   &mockDutyService{result: &duty.DutyResult{DutyID: "johndoe", IsNewAssignment: true}},
+		messagesChan:  messagesChan,
+		supportChatId: "support-123",
+		isWorkingNow: func() bool {
+			return false
+		},
+	}
+
+	response, err := cmd.Execute(bots.Command{
+		Name:   "duty",
+		ChatId: "caller-456",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if response != "Duty can only be called during working hours" {
+		t.Fatalf("unexpected response: %q", response)
+	}
+	if len(messagesChan) != 0 {
+		t.Fatalf("expected no outgoing messages outside working hours, got %d", len(messagesChan))
+	}
+}
+
+func TestDutyCommand_Execute_AllowsDuringWorkingHours(t *testing.T) {
+	messagesChan := make(chan bots.Message, 10)
+	cmd := &DutyCommand{
+		dutyService:   &mockDutyService{result: &duty.DutyResult{DutyID: "johndoe", IsNewAssignment: true}},
+		messagesChan:  messagesChan,
+		supportChatId: "support-123",
+		isWorkingNow: func() bool {
+			return true
+		},
+	}
+
+	response, err := cmd.Execute(bots.Command{
+		Name:   "duty",
+		ChatId: "caller-456",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if response != "The development team is rushing to help!" {
+		t.Fatalf("unexpected response: %q", response)
+	}
+	if len(messagesChan) != 2 {
+		t.Fatalf("expected 2 outgoing messages during working hours, got %d", len(messagesChan))
+	}
+}

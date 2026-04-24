@@ -90,12 +90,25 @@ func main() {
 
 	bots.CreateBot(ctx, settings)
 
+	log.Printf("Current time: %v", time.Now().Format("02.01.2006 MST"))
+	workingCalendar := working_calendar.FillWorkingTime()
+	unusualDays, err := dao.GetUnusualDays(connectionStr, time.Now())
+	for _, day := range unusualDays {
+		fmt.Printf("Unusual day: %s\n", day.Format("2006-01-02"))
+	}
+	if err != nil {
+		log.Printf("Error getting unusual days: %v", err)
+	}
+
 	// Initialize command router
 	commandRouter := bots.NewCommandRouter()
 	commandRouter.Register("duty", commands.NewDutyCommand(commands.DutyCommandConfig{
 		ConnectionStr: connectionStr,
 		MessagesChan:  botMessagesChannel,
 		SupportChatId: settings.SupportChatId,
+		IsWorkingNow: func() bool {
+			return working_calendar.IsWorkingTime(workingCalendar, time.Now(), unusualDays)
+		},
 	}))
 	go commandRouter.Listen(ctx, botCommandsChannel, botMessagesChannel)
 
@@ -154,16 +167,6 @@ func main() {
 			cancel()
 		}
 	}()
-
-	log.Printf("Current time: %v", time.Now().Format("02.01.2006 MST"))
-	workingCalendar := working_calendar.FillWorkingTime()
-	unusualDays, err := dao.GetUnusualDays(connectionStr, time.Now())
-	for _, day := range unusualDays {
-		fmt.Printf("Unusual day: %s\n", day.Format("2006-01-02"))
-	}
-	if err != nil {
-		log.Printf("Error getting unusual days: %v", err)
-	}
 
 	ticker := time.NewTicker(time.Duration(probeDelay) * time.Second)
 	defer ticker.Stop()
