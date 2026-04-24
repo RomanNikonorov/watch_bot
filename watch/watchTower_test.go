@@ -1,6 +1,7 @@
 package watch
 
 import (
+	"context"
 	"testing"
 	"time"
 	"watch_bot/bots"
@@ -79,7 +80,7 @@ func TestDog(t *testing.T) {
 				DeadProbeDelay:     tt.deadProbeDelay,
 				Checker:            checker,
 			}
-			go Dog(config)
+			go Dog(context.Background(), config)
 
 			for _, msg := range tt.livenessMessages {
 				livenessChannel <- msg
@@ -103,5 +104,72 @@ func TestDog(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestDogStopsOnContextCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	livenessChannel := make(chan string)
+	messagesChannel := make(chan bots.Message, 1)
+
+	config := DogConfig{
+		Server:          Server{Name: "TestServer", URL: "http://example.com"},
+		LivenessChannel: livenessChannel,
+		MessagesChannel: messagesChannel,
+		Checker:         &MockURLChecker{responses: []bool{true}},
+	}
+
+	done := make(chan struct{})
+	go func() {
+		Dog(ctx, config)
+		close(done)
+	}()
+
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("Dog did not stop after context cancellation")
+	}
+}
+
+func TestDogRecoversAfterPauseCycle(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	livenessChannel := make(chan string, 1)
+	messagesChannel := make(chan bots.Message, 3)
+
+	config := DogConfig{
+		Server:             Server{Name: "TestServer", URL: "http://example.com"},
+		LivenessChannel:    livenessChannel,
+		MessagesChannel:    messagesChannel,
+		UnhealthyThreshold: 1,
+		DeadProbeDelay:     0,
+		DeadThreshold:      1,
+		DeadPause:          0,
+		Checker:            &MockURLChecker{responses: []bool{false, false, true}},
+	}
+
+	go Dog(ctx, config)
+
+	livenessChannel <- "TestServer"
+
+	expectedMessages := []string{
+		"❌ TestServer is not responding ❌",
+		"🆘☠️ TestServer is offline, pause watching it for 0 minutes ☠️🆘",
+		"✅ TestServer is responding ✅",
+	}
+
+	for _, expected := range expectedMessages {
+		select {
+		case msg := <-messagesChannel:
+			if msg.Text != expected {
+				t.Fatalf("expected %q, got %q", expected, msg.Text)
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("expected message %q but got none", expected)
+		}
 	}
 }

@@ -1,2 +1,5 @@
 /.idea/
 /watch_bot.iml
+/.gocache/
+/.tmp/
+/.bin/

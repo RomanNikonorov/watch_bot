@@ -2,6 +2,38 @@
 
 WatchBot is a monitoring tool that checks the liveness of servers and sends notifications via a specified bot (e.g., Telegram). It periodically probes the servers and reports their status.
 
+## Local Development
+
+The repository includes a `Makefile` that pins Go build artifacts to local directories inside the project. This avoids failures in restricted environments where the default Go cache is not writable.
+
+```bash
+make test
+make build
+make run
+```
+
+`make build` writes the binary to `.bin/watch_bot`. Temporary Go build artifacts are stored in `.gocache` and `.tmp`, so local runs do not depend on a writable system Go cache.
+
+## Runtime Endpoints
+
+The service starts an HTTP server on port `9000` with the following endpoints:
+
+- `GET /health` - liveness probe
+- `GET /ready` - readiness probe
+- `GET /metrics` - Prometheus metrics
+
+## Graceful Shutdown
+
+The process listens for `SIGINT` and `SIGTERM`.
+
+On shutdown it:
+
+- cancels the main application context
+- stops scheduling new probes
+- interrupts watchdog wait loops and bot retry pauses
+- marks readiness as failed
+- gracefully stops the HTTP server with a 10-second timeout
+
 ## Environment Variables
 
 ### Database Configuration
@@ -23,7 +55,7 @@ WatchBot is a monitoring tool that checks the liveness of servers and sends noti
 - `DEAD_PROBE_PAUSE`: Pause in minutes before continuing to probe after server is dead (default: 30)
 - `UNHEALTHY_THRESHOLD`: Number of unhealthy probes before sending a message (default: 3)
 - `UNHEALTHY_DELAY`: Delay between unhealthy probes in seconds (default: 2)
-- 'PROBE_TIMEOUT': Timeout for probe in seconds (default: 3)
+- `PROBE_TIMEOUT`: Timeout for probe in seconds (default: 3)
 
 ### Working Calendar Configuration
 - `START_TIME`: Start of working hours (format: "HH:MM", e.g., "09:00")
@@ -33,15 +65,9 @@ WatchBot is a monitoring tool that checks the liveness of servers and sends noti
 ### Logging
 - `GRAYLOG_ADDR`: Graylog server address (optional)
 
-## Bot Commands
+## How To Run
 
-- `/duty` - Show current duty person. When called, the bot will:
-  - Return a message indicating help is on the way
-  - Notify the person on duty
-  - Send a notification to the support chat indicating who is on duty today
-  - **Note**: For VK Teams, user mentions use MarkdownV2 format: `@[userId](mention://userId)` to properly tag users
-
-## SQL Script for Creating Database
+1. Create the database schema:
 
 ```sql
 create table servers
@@ -63,4 +89,47 @@ id bigserial constraint duties_pk primary key,
 duty_id text not null,
 last_duty_date date
 );
+```
 
+2. Set the required environment variables. Minimal example for Telegram:
+
+```bash
+export CONNECTION_STR='postgres://username:password@localhost:5432/watch_bot?sslmode=disable'
+export BOT_TYPE='telegram'
+export BOT_TOKEN='your-bot-token'
+export MAIN_CHAT_ID='your-main-chat-id'
+
+export PROBE_DELAY='5'
+export DEAD_PROBE_DELAY='60'
+export DEAD_PROBE_THRESHOLD='10'
+export DEAD_PROBE_PAUSE='30'
+export UNHEALTHY_THRESHOLD='3'
+export UNHEALTHY_DELAY='2'
+export PROBE_TIMEOUT='3'
+
+export RETRY_COUNT='3'
+export RETRY_PAUSE='5'
+```
+
+3. Add at least one server to monitor:
+
+```sql
+insert into servers (name, url) values ('example', 'https://example.com/health');
+```
+
+4. Start the service:
+
+```bash
+make run
+```
+
+5. Verify that the process is up:
+
+```bash
+curl http://localhost:9000/health
+curl http://localhost:9000/ready
+```
+
+## Bot Commands
+
+`\\duty` shows the current duty person. When called, the bot returns a message indicating help is on the way, notifies the person on duty, and on the first assignment of the day also sends a notification to the support chat. For VK Teams, that support notification is sent with HTML parse mode.
