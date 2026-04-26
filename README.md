@@ -43,7 +43,8 @@ On shutdown it:
 - `BOT_TOKEN`: Bot token
 - `BOT_API_URL`: Bot API URL
 - `MAIN_CHAT_ID`: Main chat ID for notifications
-- `SUPPORT_CHAT_ID`: Support chat ID for duty notifications (required for duty command)
+- `SUPPORT_CHAT_ID`: Support chat ID for duty notifications and the `\\next` command (required for duty replacement)
+- `NEXT_ALLOWED_USER_IDS`: Comma-separated list of user IDs allowed to execute `\\next`
 - `BOT_TYPE`: Type of bot to use (can be `telegram` or `vk`)
 - `RETRY_COUNT`: Number of attempts to send a message (default: 3)
 - `RETRY_PAUSE`: Pause between retry attempts in seconds (default: 5)
@@ -98,6 +99,8 @@ export CONNECTION_STR='postgres://username:password@localhost:5432/watch_bot?ssl
 export BOT_TYPE='telegram'
 export BOT_TOKEN='your-bot-token'
 export MAIN_CHAT_ID='your-main-chat-id'
+export SUPPORT_CHAT_ID='your-support-chat-id'
+export NEXT_ALLOWED_USER_IDS='user-id-1,user-id-2'
 
 export PROBE_DELAY='5'
 export DEAD_PROBE_DELAY='60'
@@ -132,4 +135,6 @@ curl http://localhost:9000/ready
 
 ## Bot Commands
 
-`\\duty` shows the current duty person. When called, the bot returns a message indicating help is on the way, notifies the person on duty, and on the first assignment of the day also sends a notification to the support chat. For VK Teams, that support notification is sent with HTML parse mode.
+`\\duty` shows the current duty person. It is accepted from `MAIN_CHAT_ID`. When called, the bot returns a message indicating help is on the way, notifies the person on duty, and on the first assignment of the day also sends a notification to the support chat. For VK Teams, that support notification is sent with HTML parse mode.
+
+`\\next` replaces today's duty person with the next person in alphabetical rotation. It is accepted from `SUPPORT_CHAT_ID` only when the sender user ID is listed in `NEXT_ALLOWED_USER_IDS`; other users receive a permission denial response. The command is intended for cases where the selected duty person is unavailable. It clears today's `last_duty_date` from the current duty record, assigns today's date to the next duty record, notifies the new duty person, and sends an updated mention to the support chat.

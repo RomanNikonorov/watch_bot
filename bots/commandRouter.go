@@ -13,6 +13,38 @@ type CommandHandler interface {
 	Description() string
 }
 
+type chatRestrictedHandler struct {
+	handler        CommandHandler
+	allowedChatIds map[string]struct{}
+}
+
+func NewChatRestrictedHandler(handler CommandHandler, allowedChatIds ...string) CommandHandler {
+	allowed := make(map[string]struct{})
+	for _, chatId := range allowedChatIds {
+		if chatId != "" {
+			allowed[chatId] = struct{}{}
+		}
+	}
+	return &chatRestrictedHandler{
+		handler:        handler,
+		allowedChatIds: allowed,
+	}
+}
+
+func (h *chatRestrictedHandler) Execute(cmd Command) (string, error) {
+	if len(h.allowedChatIds) == 0 {
+		return h.handler.Execute(cmd)
+	}
+	if _, ok := h.allowedChatIds[cmd.ChatId]; !ok {
+		return "This command is not allowed in this chat", nil
+	}
+	return h.handler.Execute(cmd)
+}
+
+func (h *chatRestrictedHandler) Description() string {
+	return h.handler.Description()
+}
+
 // CommandRouter routes commands to appropriate handlers
 type CommandRouter struct {
 	handlers map[string]CommandHandler
@@ -83,7 +115,7 @@ func (r *CommandRouter) Listen(ctx context.Context, commandChannel chan Command,
 
 // ParseCommand parses message text into Command struct
 // Returns nil if message is not a command (doesn't start with \)
-func ParseCommand(text string, chatId string) *Command {
+func ParseCommand(text string, chatId string, userId ...string) *Command {
 	text = strings.TrimSpace(text)
 	if !strings.HasPrefix(text, "\\") {
 		return nil
@@ -101,6 +133,9 @@ func ParseCommand(text string, chatId string) *Command {
 		ChatId: chatId,
 		Params: make(map[string]string),
 	}
+	if len(userId) > 0 {
+		cmd.UserId = userId[0]
+	}
 
 	// Parse remaining parts as positional params
 	for i, part := range parts[1:] {
@@ -108,4 +143,18 @@ func ParseCommand(text string, chatId string) *Command {
 	}
 
 	return cmd
+}
+
+func isAllowedCommandChat(chatId string, allowedChatIds ...string) bool {
+	hasAllowedChatIds := false
+	for _, allowedChatId := range allowedChatIds {
+		if allowedChatId == "" {
+			continue
+		}
+		hasAllowedChatIds = true
+		if chatId == allowedChatId {
+			return true
+		}
+	}
+	return !hasAllowedChatIds
 }

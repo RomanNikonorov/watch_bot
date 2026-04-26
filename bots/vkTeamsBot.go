@@ -9,9 +9,10 @@ import (
 )
 
 type VkTeamsBot struct {
-	Bot        *botgolang.Bot
-	BotApiUrl  string
-	MainChatId string
+	Bot           *botgolang.Bot
+	BotApiUrl     string
+	MainChatId    string
+	SupportChatId string
 }
 
 func (b VkTeamsBot) ListenIncomingMessages(ctx context.Context, messages chan Command) {
@@ -26,13 +27,12 @@ func (b VkTeamsBot) ListenIncomingMessages(ctx context.Context, messages chan Co
 				return
 			}
 			chatId := update.Payload.Chat.ID
-			// Only accept commands from main chat
-			if b.MainChatId != "" && chatId != b.MainChatId {
-				log.Printf("Ignoring message from chat %s (not main chat)", chatId)
+			if !isAllowedCommandChat(chatId, b.MainChatId, b.SupportChatId) {
+				log.Printf("Ignoring message from chat %s (not allowed command chat)", chatId)
 				continue
 			}
 			log.Println("Received message:", update.Payload.Text)
-			cmd := ParseCommand(update.Payload.Text, chatId)
+			cmd := ParseCommand(update.Payload.Text, chatId, update.Payload.From.ID)
 			if cmd != nil {
 				select {
 				case <-ctx.Done():

@@ -60,6 +60,30 @@ func (s *Service) GetCurrentDuty() (*DutyResult, error) {
 	}, nil
 }
 
+// GetNextDuty forcefully moves today's duty to the next person in alphabetical rotation.
+func (s *Service) GetNextDuty() (*DutyResult, error) {
+	duties, err := dao.GetAllDuties(s.connectionStr)
+	if err != nil {
+		return nil, err
+	}
+
+	currentDate := time.Now().Truncate(24 * time.Hour)
+	duty := FindNextDuty(duties, currentDate)
+	if duty == nil {
+		return nil, nil
+	}
+
+	err = dao.ReassignDutyDate(s.connectionStr, duty.ID, currentDate)
+	if err != nil {
+		return nil, err
+	}
+
+	return &DutyResult{
+		DutyID:          duty.DutyID,
+		IsNewAssignment: true,
+	}, nil
+}
+
 // FindCurrentDuty finds the current duty person from a list of duties
 // This is a pure function for easy testing
 func FindCurrentDuty(duties []dao.Duty, currentDate time.Time) *dao.Duty {
@@ -98,6 +122,32 @@ func FindCurrentDuty(duties []dao.Duty, currentDate time.Time) *dao.Duty {
 	}
 
 	nextIndex := (lastDutyIndex + 1) % len(duties)
+	return &duties[nextIndex]
+}
+
+// FindNextDuty finds the next duty person after today's assigned duty.
+func FindNextDuty(duties []dao.Duty, currentDate time.Time) *dao.Duty {
+	if len(duties) < 2 {
+		return nil
+	}
+
+	sort.Slice(duties, func(i, j int) bool {
+		return duties[i].DutyID < duties[j].DutyID
+	})
+
+	currentDutyIndex := -1
+	for i := range duties {
+		if duties[i].LastDutyDate != nil && isSameDay(*duties[i].LastDutyDate, currentDate) {
+			currentDutyIndex = i
+			break
+		}
+	}
+
+	if currentDutyIndex == -1 {
+		return nil
+	}
+
+	nextIndex := (currentDutyIndex + 1) % len(duties)
 	return &duties[nextIndex]
 }
 
