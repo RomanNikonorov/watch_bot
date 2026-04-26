@@ -165,3 +165,68 @@ func TestFindCurrentDuty_SameDayDifferentTime(t *testing.T) {
 		t.Errorf("expected alice (same day), got %s", result.DutyID)
 	}
 }
+
+func TestFindNextDuty_AfterTodayDuty(t *testing.T) {
+	today := time.Now().Truncate(24 * time.Hour)
+	yesterday := today.AddDate(0, 0, -1)
+
+	duties := []dao.Duty{
+		{ID: 1, DutyID: "alice", LastDutyDate: &yesterday},
+		{ID: 2, DutyID: "bob", LastDutyDate: &today},
+		{ID: 3, DutyID: "charlie", LastDutyDate: nil},
+	}
+
+	result := FindNextDuty(duties, today)
+	if result == nil {
+		t.Fatal("expected duty, got nil")
+	}
+	if result.DutyID != "charlie" {
+		t.Errorf("expected charlie (next after bob), got %s", result.DutyID)
+	}
+}
+
+func TestFindNextDuty_WrapAround(t *testing.T) {
+	today := time.Now().Truncate(24 * time.Hour)
+
+	duties := []dao.Duty{
+		{ID: 1, DutyID: "alice", LastDutyDate: nil},
+		{ID: 2, DutyID: "bob", LastDutyDate: nil},
+		{ID: 3, DutyID: "charlie", LastDutyDate: &today},
+	}
+
+	result := FindNextDuty(duties, today)
+	if result == nil {
+		t.Fatal("expected duty, got nil")
+	}
+	if result.DutyID != "alice" {
+		t.Errorf("expected alice (wrap around to first), got %s", result.DutyID)
+	}
+}
+
+func TestFindNextDuty_NoTodayDuty(t *testing.T) {
+	today := time.Now().Truncate(24 * time.Hour)
+	yesterday := today.AddDate(0, 0, -1)
+
+	duties := []dao.Duty{
+		{ID: 1, DutyID: "alice", LastDutyDate: &yesterday},
+		{ID: 2, DutyID: "bob", LastDutyDate: nil},
+	}
+
+	result := FindNextDuty(duties, today)
+	if result != nil {
+		t.Errorf("expected nil when nobody is assigned today, got %+v", result)
+	}
+}
+
+func TestFindNextDuty_SinglePerson(t *testing.T) {
+	today := time.Now().Truncate(24 * time.Hour)
+
+	duties := []dao.Duty{
+		{ID: 1, DutyID: "alice", LastDutyDate: &today},
+	}
+
+	result := FindNextDuty(duties, today)
+	if result != nil {
+		t.Errorf("expected nil for single person, got %+v", result)
+	}
+}

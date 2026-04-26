@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -41,6 +42,7 @@ func main() {
 	botApiUrl := os.Getenv("BOT_API_URL")
 	mainChatId := os.Getenv("MAIN_CHAT_ID")
 	supportChatId := os.Getenv("SUPPORT_CHAT_ID")
+	nextAllowedUserIds := parseCommaSeparatedList(os.Getenv("NEXT_ALLOWED_USER_IDS"))
 	botType := os.Getenv("BOT_TYPE")
 
 	// delay between probes
@@ -102,14 +104,24 @@ func main() {
 
 	// Initialize command router
 	commandRouter := bots.NewCommandRouter()
-	commandRouter.Register("duty", commands.NewDutyCommand(commands.DutyCommandConfig{
+	isWorkingNow := func() bool {
+		return working_calendar.IsWorkingTime(workingCalendar, time.Now(), unusualDays)
+	}
+	commandRouter.Register("duty", bots.NewChatRestrictedHandler(commands.NewDutyCommand(commands.DutyCommandConfig{
 		ConnectionStr: connectionStr,
 		MessagesChan:  botMessagesChannel,
 		SupportChatId: settings.SupportChatId,
-		IsWorkingNow: func() bool {
-			return working_calendar.IsWorkingTime(workingCalendar, time.Now(), unusualDays)
-		},
-	}))
+		IsWorkingNow:  isWorkingNow,
+	}), settings.MainChatId))
+	if settings.SupportChatId != "" {
+		commandRouter.Register("next", bots.NewChatRestrictedHandler(commands.NewNextCommand(commands.NextCommandConfig{
+			ConnectionStr:      connectionStr,
+			MessagesChan:       botMessagesChannel,
+			SupportChatId:      settings.SupportChatId,
+			AllowedNextUserIds: nextAllowedUserIds,
+			IsWorkingNow:       isWorkingNow,
+		}), settings.SupportChatId))
+	}
 	go commandRouter.Listen(ctx, botCommandsChannel, botMessagesChannel)
 
 	for _, server := range servers {
@@ -201,4 +213,15 @@ func shutdownHTTPServer(httpServer *http.Server, isReady *atomic.Value) {
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		log.Printf("HTTP server shutdown error: %v", err)
 	}
+}
+
+func parseCommaSeparatedList(value string) []string {
+	var result []string
+	for _, item := range strings.Split(value, ",") {
+		item = strings.TrimSpace(item)
+		if item != "" {
+			result = append(result, item)
+		}
+	}
+	return result
 }

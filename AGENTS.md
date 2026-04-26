@@ -49,7 +49,7 @@ Implemented in `bots/`.
 - `vkTeamsBot.go` provides the same for VK Teams.
 - `retry.go` contains cancellation-aware retry waiting.
 
-Incoming commands are accepted only from `MAIN_CHAT_ID`.
+Incoming commands are accepted only from configured command chats. The `duty` command is restricted to `MAIN_CHAT_ID`; the `next` command is restricted to `SUPPORT_CHAT_ID` and sender user IDs listed in `NEXT_ALLOWED_USER_IDS`.
 
 ### Command Routing
 
@@ -58,7 +58,7 @@ Implemented in `bots/commandRouter.go`.
 - Commands must start with `\`.
 - Parsed commands are normalized to lowercase.
 - Unknown commands return a generated help message listing registered commands.
-- The router currently registers only one command: `duty`.
+- The router currently registers two commands: `duty` and `next`.
 
 ### Duty Command
 
@@ -81,6 +81,26 @@ Behavior of `\duty`:
 - returns a response to the caller chat: `The development team is rushing to help!`.
 
 Support chat notification uses VK Teams mention format `@[userId]` and HTML parse mode.
+
+### Next Command
+
+Implemented in:
+
+- `bots/commands/next.go`
+- `duty/duty_service.go`
+- DAO methods in `dao/dao.go`
+
+Behavior of `\next`:
+
+- works only during configured working hours;
+- is accepted only from `SUPPORT_CHAT_ID`;
+- is accepted only from users listed in `NEXT_ALLOWED_USER_IDS`;
+- returns a permission-denied response to other users;
+- requires an existing duty assignment for today;
+- selects the next person alphabetically after today's current duty person;
+- clears today's `last_duty_date` from the current duty record and assigns today's date to the next duty record in a single transaction;
+- sends a direct message to the newly selected duty person;
+- sends a support-chat notification using VK Teams mention format `@[userId]` and HTML parse mode.
 
 ### Monitoring
 
@@ -168,6 +188,7 @@ Important environment variables:
 - `BOT_TYPE`
 - `MAIN_CHAT_ID`
 - `SUPPORT_CHAT_ID`
+- `NEXT_ALLOWED_USER_IDS`
 - `PROBE_DELAY`
 - `DEAD_PROBE_DELAY`
 - `DEAD_PROBE_THRESHOLD`
@@ -188,7 +209,7 @@ Important environment variables:
 - `duties` are read dynamically on each `\duty` call.
 - Monitoring accepts only HTTP `200` as healthy.
 - TLS certificate verification is disabled.
-- Commands are only accepted from `MAIN_CHAT_ID`.
+- Commands are only accepted from configured command chats; each command has its own chat restriction.
 - There is no admin UI or runtime reload mechanism.
 
 ## Verification

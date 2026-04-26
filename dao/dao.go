@@ -166,3 +166,54 @@ func UpdateDutyDate(connStr string, dutyID int64, date time.Time) error {
 	}
 	return nil
 }
+
+// ReassignDutyDate clears the date from anyone assigned for the same day and assigns it to dutyID.
+func ReassignDutyDate(connStr string, dutyID int64, date time.Time) error {
+	db, err := getDb(connStr)
+	if err != nil {
+		return fmt.Errorf("failed to get db: %w", err)
+	}
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			fmt.Printf("failed to close database connection: %v", err)
+		}
+	}(db)
+
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			rollbackErr := tx.Rollback()
+			if rollbackErr != nil {
+				fmt.Printf("failed to rollback transaction: %v", rollbackErr)
+			}
+		}
+	}()
+
+	_, err = tx.Exec("UPDATE duties SET last_duty_date = NULL WHERE last_duty_date = $1", date)
+	if err != nil {
+		return fmt.Errorf("failed to clear duty dates: %w", err)
+	}
+
+	result, err := tx.Exec("UPDATE duties SET last_duty_date = $1 WHERE id = $2", date, dutyID)
+	if err != nil {
+		return fmt.Errorf("failed to update duty date: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	if rowsAffected == 0 {
+		err = fmt.Errorf("duty record %d not found", dutyID)
+		return err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+	return nil
+}

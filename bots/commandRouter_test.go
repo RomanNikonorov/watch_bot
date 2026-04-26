@@ -77,6 +77,16 @@ func TestParseCommand_ValidCommand(t *testing.T) {
 	}
 }
 
+func TestParseCommand_UserId(t *testing.T) {
+	result := ParseCommand("\\next", "support", "user-1")
+	if result == nil {
+		t.Fatal("expected command, got nil")
+	}
+	if result.UserId != "user-1" {
+		t.Fatalf("expected user id user-1, got %q", result.UserId)
+	}
+}
+
 func TestParseCommand_NotACommand(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -170,5 +180,44 @@ func TestCommandRouter_GetRegisteredCommands(t *testing.T) {
 	}
 	if _, exists := commands["cmd2"]; !exists {
 		t.Error("expected cmd2 to be registered")
+	}
+}
+
+func TestChatRestrictedHandler_AllowsConfiguredChat(t *testing.T) {
+	handler := NewChatRestrictedHandler(&mockHandler{response: "ok"}, "support")
+
+	response, err := handler.Execute(Command{Name: "next", ChatId: "support"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if response != "ok" {
+		t.Fatalf("expected ok response, got %q", response)
+	}
+}
+
+func TestChatRestrictedHandler_RejectsOtherChat(t *testing.T) {
+	handler := NewChatRestrictedHandler(&mockHandler{response: "ok"}, "support")
+
+	response, err := handler.Execute(Command{Name: "next", ChatId: "main"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if response != "This command is not allowed in this chat" {
+		t.Fatalf("unexpected response: %q", response)
+	}
+}
+
+func TestIsAllowedCommandChat(t *testing.T) {
+	if !isAllowedCommandChat("main", "main", "support") {
+		t.Fatal("expected main chat to be allowed")
+	}
+	if !isAllowedCommandChat("support", "main", "support") {
+		t.Fatal("expected support chat to be allowed")
+	}
+	if isAllowedCommandChat("other", "main", "support") {
+		t.Fatal("expected other chat to be rejected")
+	}
+	if !isAllowedCommandChat("any") {
+		t.Fatal("expected chat to be allowed when no allow list is configured")
 	}
 }

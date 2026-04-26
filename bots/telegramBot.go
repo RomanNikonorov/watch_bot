@@ -11,8 +11,9 @@ import (
 )
 
 type TelegramBot struct {
-	Bot        *tgbotapi.BotAPI
-	MainChatId string
+	Bot           *tgbotapi.BotAPI
+	MainChatId    string
+	SupportChatId string
 }
 
 func (b *TelegramBot) ListenIncomingMessages(ctx context.Context, messages chan Command) {
@@ -35,13 +36,16 @@ func (b *TelegramBot) ListenIncomingMessages(ctx context.Context, messages chan 
 			}
 			if update.Message != nil {
 				chatId := strconv.FormatInt(update.Message.Chat.ID, 10)
-				// Only accept commands from main chat
-				if b.MainChatId != "" && chatId != b.MainChatId {
-					log.Printf("Ignoring message from chat %s (not main chat)", chatId)
+				if !isAllowedCommandChat(chatId, b.MainChatId, b.SupportChatId) {
+					log.Printf("Ignoring message from chat %s (not allowed command chat)", chatId)
 					continue
 				}
 				log.Printf("Received message: %s from user id %d", update.Message.Text, update.Message.Chat.ID)
-				cmd := ParseCommand(update.Message.Text, chatId)
+				userId := ""
+				if update.Message.From != nil {
+					userId = strconv.Itoa(update.Message.From.ID)
+				}
+				cmd := ParseCommand(update.Message.Text, chatId, userId)
 				if cmd != nil {
 					select {
 					case <-ctx.Done():

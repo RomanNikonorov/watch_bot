@@ -12,9 +12,11 @@ func CreateBot(ctx context.Context, settings BotSettings) WatchBot {
 		bot = &VkTeamsBot{}
 		bot.(*VkTeamsBot).BotApiUrl = settings.BotApiUrl
 		bot.(*VkTeamsBot).MainChatId = settings.MainChatId
+		bot.(*VkTeamsBot).SupportChatId = settings.SupportChatId
 	case "telegram":
 		bot = &TelegramBot{}
 		bot.(*TelegramBot).MainChatId = settings.MainChatId
+		bot.(*TelegramBot).SupportChatId = settings.SupportChatId
 	default:
 		log.Fatal("unsupported bot type")
 	}
@@ -42,5 +44,6 @@ type Message struct {
 type Command struct {
 	Name   string
 	ChatId string
+	UserId string
 	Params map[string]string
 }
