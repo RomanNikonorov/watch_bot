@@ -16,7 +16,6 @@ import (
 	"watch_bot/bots/commands"
 	"watch_bot/dao"
 	"watch_bot/lib"
-	"watch_bot/watch"
 	"watch_bot/working_calendar"
 
 	"github.com/go-chi/chi/v5"
@@ -45,24 +44,10 @@ func main() {
 	nextAllowedUserIds := parseSemicolonSeparatedList(os.Getenv("NEXT_ALLOWED_USER_IDS"))
 	botType := os.Getenv("BOT_TYPE")
 
-	// delay between probes
-	probeDelay := lib.GetEnvVariableValueWithDefault("PROBE_DELAY", "5")
-	// delay between probes when server is dead
-	deadProbeDelay := lib.GetEnvVariableValueWithDefault("DEAD_PROBE_DELAY", "60")
-	// number of dead probes before sending a message
-	deadThreshold := lib.GetEnvVariableValueWithDefault("DEAD_PROBE_THRESHOLD", "10")
-	// pause in minutes before continuing to probe after server is dead
-	deadPause := lib.GetEnvVariableValueWithDefault("DEAD_PROBE_PAUSE", "30")
-	// number of unhealthy probes before sending a message
-	unhealthyThreshold := lib.GetEnvVariableValueWithDefault("UNHEALTHY_THRESHOLD", "3")
-	// delay between unhealthy probes
-	unhealthyDelay := lib.GetEnvVariableValueWithDefault("UNHEALTHY_DELAY", "2")
 	// retry count for bot
 	retryCount := lib.GetEnvVariableValueWithDefault("RETRY_COUNT", "3")
 	// retry pause for bot
 	retryPause := lib.GetEnvVariableValueWithDefault("RETRY_PAUSE", "5")
-	// probe timeout
-	probeTimeout := lib.GetEnvVariableValueWithDefault("PROBE_TIMEOUT", "3")
 
 	botMessagesChannel := make(chan bots.Message, 100)
 	botCommandsChannel := make(chan bots.Command)
@@ -80,12 +65,9 @@ func main() {
 	}
 
 	connectionStr := os.Getenv("CONNECTION_STR")
-	servers, err := dao.GetServers(connectionStr)
-	if err != nil {
-		log.Fatal(err)
+	if err := dao.ValidateConnection(connectionStr); err != nil {
+		log.Fatalf("database validation failed: %v", err)
 	}
-
-	watchTowerLivenessChannelsMap := make(map[string]chan string)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -124,25 +106,6 @@ func main() {
 	}
 	go commandRouter.Listen(ctx, botCommandsChannel, botMessagesChannel)
 
-	for _, server := range servers {
-		watchTowerLivenessChannelsMap[server.Name] = make(chan string)
-		config := watch.DogConfig{
-			Server:             server,
-			LivenessChannel:    watchTowerLivenessChannelsMap[server.Name],
-			MessagesChannel:    botMessagesChannel,
-			UnhealthyThreshold: unhealthyThreshold,
-			UnhealthyDelay:     unhealthyDelay,
-			DeadProbeDelay:     deadProbeDelay,
-			DeadThreshold:      deadThreshold,
-			Checker:            watch.RealURLChecker{},
-			ChatId:             mainChatId,
-			DeadPause:          deadPause,
-			ProbeTimeout:       probeTimeout,
-		}
-		go watch.Dog(ctx, config)
-	}
-
-	// metrics & probes
 	isReady := &atomic.Value{}
 	isReady.Store(true)
 	httpRouter := chi.NewRouter()
@@ -180,28 +143,8 @@ func main() {
 		}
 	}()
 
-	ticker := time.NewTicker(time.Duration(probeDelay) * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			shutdownHTTPServer(httpServer, isReady)
-			return
-		case <-ticker.C:
-			for _, server := range servers {
-				if !working_calendar.IsWorkingTime(workingCalendar, time.Now(), unusualDays) {
-					continue
-				}
-				select {
-				case <-ctx.Done():
-					shutdownHTTPServer(httpServer, isReady)
-					return
-				case watchTowerLivenessChannelsMap[server.Name] <- server.Name:
-				}
-			}
-		}
-	}
+	<-ctx.Done()
+	shutdownHTTPServer(httpServer, isReady)
 }
 
 func shutdownHTTPServer(httpServer *http.Server, isReady *atomic.Value) {

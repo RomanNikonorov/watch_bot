@@ -1,6 +1,6 @@
 # WatchBot
 
-WatchBot is a monitoring tool that checks the liveness of servers and sends notifications via a specified bot (e.g., Telegram). It periodically probes the servers and reports their status.
+WatchBot is a duty bot service for Telegram or VK Teams. It exposes health/readiness/metrics endpoints and supports the `\\duty` and `\\next` commands for daily duty rotation.
 
 ## Local Development
 
@@ -29,8 +29,8 @@ The process listens for `SIGINT` and `SIGTERM`.
 On shutdown it:
 
 - cancels the main application context
-- stops scheduling new probes
-- interrupts watchdog wait loops and bot retry pauses
+- stops bot send/receive loops
+- interrupts bot retry pauses
 - marks readiness as failed
 - gracefully stops the HTTP server with a 10-second timeout
 
@@ -49,15 +49,6 @@ On shutdown it:
 - `RETRY_COUNT`: Number of attempts to send a message (default: 3)
 - `RETRY_PAUSE`: Pause between retry attempts in seconds (default: 5)
 
-### Probe Configuration
-- `PROBE_DELAY`: Delay between probes in seconds (default: 5)
-- `DEAD_PROBE_DELAY`: Delay between probes when server is dead in seconds (default: 60)
-- `DEAD_PROBE_THRESHOLD`: Number of dead probes before sending a message (default: 10)
-- `DEAD_PROBE_PAUSE`: Pause in minutes before continuing to probe after server is dead (default: 30)
-- `UNHEALTHY_THRESHOLD`: Number of unhealthy probes before sending a message (default: 3)
-- `UNHEALTHY_DELAY`: Delay between unhealthy probes in seconds (default: 2)
-- `PROBE_TIMEOUT`: Timeout for probe in seconds (default: 3)
-
 ### Working Calendar Configuration
 - `START_TIME`: Start of working hours (format: "HH:MM", e.g., "09:00")
 - `END_TIME`: End of working hours (format: "HH:MM", e.g., "18:00")
@@ -71,13 +62,6 @@ On shutdown it:
 1. Create the database schema:
 
 ```sql
-create table servers
-(
-id bigserial constraint servers_pk primary key,
-name text not null,
-url  text not null
-);
-
 create table unusual_days
 (
 id bigserial constraint unusual_days_pk primary key,
@@ -102,31 +86,17 @@ export MAIN_CHAT_ID='your-main-chat-id'
 export SUPPORT_CHAT_ID='your-support-chat-id'
 export NEXT_ALLOWED_USER_IDS='user-id-1;user-id-2'
 
-export PROBE_DELAY='5'
-export DEAD_PROBE_DELAY='60'
-export DEAD_PROBE_THRESHOLD='10'
-export DEAD_PROBE_PAUSE='30'
-export UNHEALTHY_THRESHOLD='3'
-export UNHEALTHY_DELAY='2'
-export PROBE_TIMEOUT='3'
-
 export RETRY_COUNT='3'
 export RETRY_PAUSE='5'
 ```
 
-3. Add at least one server to monitor:
-
-```sql
-insert into servers (name, url) values ('example', 'https://example.com/health');
-```
-
-4. Start the service:
+3. Start the service:
 
 ```bash
 make run
 ```
 
-5. Verify that the process is up:
+4. Verify that the process is up:
 
 ```bash
 curl http://localhost:9000/health
