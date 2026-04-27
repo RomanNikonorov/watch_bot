@@ -49,7 +49,7 @@ Implemented in `bots/`.
 - `vkTeamsBot.go` provides the same for VK Teams.
 - `retry.go` contains cancellation-aware retry waiting.
 
-Incoming commands are accepted only from configured command chats. The `duty` command is restricted to `MAIN_CHAT_ID`; the `next` command is restricted to `SUPPORT_CHAT_ID` and sender user IDs listed in `NEXT_ALLOWED_USER_IDS`.
+Incoming commands are accepted only from configured command chats. The `duty` command is restricted to `MAIN_CHAT_ID`; the `next` command is restricted to `SUPPORT_CHAT_ID` and sender user IDs listed in semicolon-separated `NEXT_ALLOWED_USER_IDS`.
 
 ### Command Routing
 
@@ -94,7 +94,7 @@ Behavior of `\next`:
 
 - works only during configured working hours;
 - is accepted only from `SUPPORT_CHAT_ID`;
-- is accepted only from users listed in `NEXT_ALLOWED_USER_IDS`;
+- is accepted only from users listed in semicolon-separated `NEXT_ALLOWED_USER_IDS`;
 - returns a permission-denied response to other users;
 - requires an existing duty assignment for today;
 - selects the next person alphabetically after today's current duty person;
@@ -188,7 +188,7 @@ Important environment variables:
 - `BOT_TYPE`
 - `MAIN_CHAT_ID`
 - `SUPPORT_CHAT_ID`
-- `NEXT_ALLOWED_USER_IDS`
+- `NEXT_ALLOWED_USER_IDS` (semicolon-separated)
 - `PROBE_DELAY`
 - `DEAD_PROBE_DELAY`
 - `DEAD_PROBE_THRESHOLD`
