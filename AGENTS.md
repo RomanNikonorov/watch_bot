@@ -4,14 +4,14 @@
 
 Before making changes, read this file first.
 
-This repository is a Go service named `watch_bot`. It monitors server health, sends notifications through Telegram or VK Teams, exposes health/readiness/metrics endpoints, and supports the `\duty` bot command.
+This repository is a Go service named `watch_bot`. It sends duty notifications through Telegram or VK Teams, exposes health/readiness/metrics endpoints, and supports the `\duty` and `\next` bot commands.
 
 ## First Checks
 
 Use these as the default first steps:
 
 - read `main.go`
-- inspect `watch/`, `bots/`, `duty/`, `dao/`, `working_calendar/`
+- inspect `bots/`, `duty/`, `dao/`, `working_calendar/`
 - run verification with `make test`
 
 The project uses a local Go cache through `Makefile`. Prefer `make test`, `make build`, and `make run` over raw `go test` when sandboxed environments may block the system Go cache.
@@ -27,14 +27,11 @@ At startup the service:
 1. reads configuration from environment variables;
 2. initializes optional Graylog logging;
 3. creates bot message and command channels;
-4. loads monitored servers from PostgreSQL;
-5. loads unusual working days from PostgreSQL;
-6. initializes the selected bot (`telegram` or `vk`);
-7. registers the `duty` command in the command router;
-8. starts one watchdog goroutine per server;
-9. starts an HTTP server on port `9000`;
-10. schedules probes on a ticker during working time only;
-11. handles graceful shutdown via `SIGINT` and `SIGTERM`.
+4. loads unusual working days from PostgreSQL;
+5. initializes the selected bot (`telegram` or `vk`);
+6. registers the `duty` and `next` commands in the command router;
+7. starts an HTTP server on port `9000`;
+8. handles graceful shutdown via `SIGINT` and `SIGTERM`.
 
 ### Bots
 
@@ -102,26 +99,6 @@ Behavior of `\next`:
 - sends a direct message to the newly selected duty person;
 - sends a support-chat notification using VK Teams mention format `@[userId]` and HTML parse mode.
 
-### Monitoring
-
-Implemented in `watch/`.
-
-- Servers are loaded from the `servers` table.
-- Each server gets its own watchdog goroutine.
-- Probe success requires HTTP status `200`.
-- HTTPS certificate validation is disabled (`InsecureSkipVerify: true`).
-- A server is considered failed only after the initial failed probe plus unhealthy retries.
-- On first failure:
-  - the bot sends a "not responding" notification;
-  - the watchdog switches into recovery mode.
-- While failed:
-  - the watchdog probes using `DEAD_PROBE_DELAY`;
-  - after `DEAD_PROBE_THRESHOLD` failures it sends one offline notification;
-  - then sleeps for `DEAD_PROBE_PAUSE` minutes before retry cycles continue.
-- On recovery:
-  - the bot sends an "is responding" notification;
-  - the watchdog returns to normal mode.
-
 ### Working Calendar
 
 Implemented in `working_calendar/workingCalendar.go`.
@@ -136,7 +113,7 @@ Additional exceptions are loaded from PostgreSQL table `unusual_days`.
 
 Logic:
 
-- if working-time config is invalid or absent, monitoring is effectively always enabled;
+- if working-time config is invalid or absent, duty commands are effectively always enabled;
 - configured days off are treated as non-working days;
 - dates from `unusual_days` invert the normal behavior for that date.
 
@@ -146,16 +123,16 @@ Implemented in `dao/dao.go`.
 
 Current tables used by the application:
 
-- `servers`
 - `unusual_days`
 - `duties`
 
 DAO responsibilities:
 
-- load servers to monitor;
 - load unusual days;
 - load all duty records;
 - update `last_duty_date` for duty rotation.
+
+The legacy `servers` table may still exist in deployments, but the application no longer reads it.
 
 ### HTTP Endpoints
 
@@ -172,7 +149,6 @@ Implemented in `main.go` and `lib/handlers.go`.
 The service performs graceful shutdown:
 
 - cancels the root context;
-- stops probe scheduling;
 - stops bot send/receive loops;
 - stops command routing;
 - marks readiness as failed;
@@ -189,13 +165,6 @@ Important environment variables:
 - `MAIN_CHAT_ID`
 - `SUPPORT_CHAT_ID`
 - `NEXT_ALLOWED_USER_IDS` (semicolon-separated)
-- `PROBE_DELAY`
-- `DEAD_PROBE_DELAY`
-- `DEAD_PROBE_THRESHOLD`
-- `DEAD_PROBE_PAUSE`
-- `UNHEALTHY_THRESHOLD`
-- `UNHEALTHY_DELAY`
-- `PROBE_TIMEOUT`
 - `RETRY_COUNT`
 - `RETRY_PAUSE`
 - `START_TIME`
@@ -205,10 +174,8 @@ Important environment variables:
 
 ## Current Limitations
 
-- `servers` and `unusual_days` are loaded only once at startup; DB changes require restart.
+- `unusual_days` are loaded only once at startup; DB changes require restart.
 - `duties` are read dynamically on each `\duty` call.
-- Monitoring accepts only HTTP `200` as healthy.
-- TLS certificate verification is disabled.
 - Commands are only accepted from configured command chats; each command has its own chat restriction.
 - There is no admin UI or runtime reload mechanism.
 
