@@ -65,6 +65,9 @@ func main() {
 	}
 
 	connectionStr := os.Getenv("CONNECTION_STR")
+	if err := dao.ValidateConnection(connectionStr); err != nil {
+		log.Fatalf("database validation failed: %v", err)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

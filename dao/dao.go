@@ -17,6 +17,26 @@ func getDb(connStr string) (*sql.DB, error) {
 	return db, nil
 }
 
+// ValidateConnection verifies that the configured database is reachable.
+func ValidateConnection(connStr string) error {
+	db, err := getDb(connStr)
+	if err != nil {
+		return fmt.Errorf("failed to get db: %w", err)
+	}
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			fmt.Printf("failed to close database connection: %v", err)
+		}
+	}(db)
+
+	if err := db.Ping(); err != nil {
+		return fmt.Errorf("failed to ping database: %w", err)
+	}
+
+	return nil
+}
+
 // GetUnusualDays retrieves the list of unusual days from the database.
 func GetUnusualDays(connStr string, currentDate time.Time) ([]time.Time, error) {
 	db, err := getDb(connStr)
