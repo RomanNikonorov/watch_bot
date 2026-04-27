@@ -42,7 +42,7 @@ func main() {
 	botApiUrl := os.Getenv("BOT_API_URL")
 	mainChatId := os.Getenv("MAIN_CHAT_ID")
 	supportChatId := os.Getenv("SUPPORT_CHAT_ID")
-	nextAllowedUserIds := parseCommaSeparatedList(os.Getenv("NEXT_ALLOWED_USER_IDS"))
+	nextAllowedUserIds := parseSemicolonSeparatedList(os.Getenv("NEXT_ALLOWED_USER_IDS"))
 	botType := os.Getenv("BOT_TYPE")
 
 	// delay between probes
@@ -215,9 +215,9 @@ func shutdownHTTPServer(httpServer *http.Server, isReady *atomic.Value) {
 	}
 }
 
-func parseCommaSeparatedList(value string) []string {
+func parseSemicolonSeparatedList(value string) []string {
 	var result []string
-	for _, item := range strings.Split(value, ",") {
+	for _, item := range strings.Split(value, ";") {
 		item = strings.TrimSpace(item)
 		if item != "" {
 			result = append(result, item)

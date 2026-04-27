@@ -44,7 +44,7 @@ On shutdown it:
 - `BOT_API_URL`: Bot API URL
 - `MAIN_CHAT_ID`: Main chat ID for notifications
 - `SUPPORT_CHAT_ID`: Support chat ID for duty notifications and the `\\next` command (required for duty replacement)
-- `NEXT_ALLOWED_USER_IDS`: Comma-separated list of user IDs allowed to execute `\\next`
+- `NEXT_ALLOWED_USER_IDS`: Semicolon-separated list of user IDs allowed to execute `\\next`
 - `BOT_TYPE`: Type of bot to use (can be `telegram` or `vk`)
 - `RETRY_COUNT`: Number of attempts to send a message (default: 3)
 - `RETRY_PAUSE`: Pause between retry attempts in seconds (default: 5)
@@ -100,7 +100,7 @@ export BOT_TYPE='telegram'
 export BOT_TOKEN='your-bot-token'
 export MAIN_CHAT_ID='your-main-chat-id'
 export SUPPORT_CHAT_ID='your-support-chat-id'
-export NEXT_ALLOWED_USER_IDS='user-id-1,user-id-2'
+export NEXT_ALLOWED_USER_IDS='user-id-1;user-id-2'
 
 export PROBE_DELAY='5'
 export DEAD_PROBE_DELAY='60'
