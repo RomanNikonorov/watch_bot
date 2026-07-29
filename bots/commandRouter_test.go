@@ -1,6 +1,7 @@
 package bots
 
 import (
+	"context"
 	"testing"
 )
 
@@ -131,7 +132,7 @@ type mockHandler struct {
 	err      error
 }
 
-func (m *mockHandler) Execute(cmd Command) (string, error) {
+func (m *mockHandler) Execute(_ context.Context, cmd Command) (string, error) {
 	return m.response, m.err
 }
 
@@ -145,7 +146,7 @@ func TestCommandRouter_Handle(t *testing.T) {
 
 	t.Run("known command", func(t *testing.T) {
 		cmd := Command{Name: "test", ChatId: "123", Params: map[string]string{}}
-		response, err := router.Handle(cmd)
+		response, err := router.Handle(context.Background(), cmd)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -156,7 +157,7 @@ func TestCommandRouter_Handle(t *testing.T) {
 
 	t.Run("unknown command", func(t *testing.T) {
 		cmd := Command{Name: "unknown", ChatId: "123", Params: map[string]string{}}
-		response, err := router.Handle(cmd)
+		response, err := router.Handle(context.Background(), cmd)
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -186,7 +187,7 @@ func TestCommandRouter_GetRegisteredCommands(t *testing.T) {
 func TestChatRestrictedHandler_AllowsConfiguredChat(t *testing.T) {
 	handler := NewChatRestrictedHandler(&mockHandler{response: "ok"}, "support")
 
-	response, err := handler.Execute(Command{Name: "next", ChatId: "support"})
+	response, err := handler.Execute(context.Background(), Command{Name: "next", ChatId: "support"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -198,7 +199,7 @@ func TestChatRestrictedHandler_AllowsConfiguredChat(t *testing.T) {
 func TestChatRestrictedHandler_RejectsOtherChat(t *testing.T) {
 	handler := NewChatRestrictedHandler(&mockHandler{response: "ok"}, "support")
 
-	response, err := handler.Execute(Command{Name: "next", ChatId: "main"})
+	response, err := handler.Execute(context.Background(), Command{Name: "next", ChatId: "main"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

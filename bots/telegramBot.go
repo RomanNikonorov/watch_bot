@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 
 type TelegramBot struct {
 	Bot           *tgbotapi.BotAPI
+	ReadyBot      *tgbotapi.BotAPI
 	MainChatId    string
 	SupportChatId string
 }
@@ -58,15 +60,34 @@ func (b *TelegramBot) ListenIncomingMessages(ctx context.Context, messages chan 
 	}
 }
 
-func (b *TelegramBot) CreateBot(ctx context.Context, commandChannel chan Command, botToken string, messagesChannel chan Message, retryCount int, retryPause int) WatchBot {
+func (b *TelegramBot) CreateBot(
+	ctx context.Context,
+	commandChannel chan Command,
+	botToken string,
+	messagesChannel chan Message,
+	retryCount int,
+	retryPause int,
+	apiTimeout time.Duration,
+) WatchBot {
 	bot, err := tgbotapi.NewBotAPI(botToken)
 	if err != nil {
 		log.Fatal("wrong parameters for bot creation :", err)
 	}
 	b.Bot = bot
+	b.ReadyBot = &tgbotapi.BotAPI{
+		Token:  botToken,
+		Client: &http.Client{Timeout: apiTimeout},
+	}
 	go b.ListenMessagesToSend(ctx, messagesChannel, retryCount, retryPause)
 	go b.ListenIncomingMessages(ctx, commandChannel)
 	return b
+}
+
+func (b *TelegramBot) Ready(ctx context.Context) error {
+	return runReadinessCheck(ctx, func() error {
+		_, err := b.ReadyBot.GetMe()
+		return err
+	})
 }
 
 func (b *TelegramBot) ListenMessagesToSend(ctx context.Context, messagesChannel chan Message, retryCount int, retryPause int) {
@@ -85,6 +106,7 @@ func (b *TelegramBot) ListenMessagesToSend(ctx context.Context, messagesChannel 
 				continue
 			}
 			msg := tgbotapi.NewMessage(chatIdInt, message.Text)
+			msg.ParseMode = message.ParseMode
 			sendFunc := func() error {
 				_, err := b.Bot.Send(msg)
 				return err
@@ -101,11 +123,13 @@ func tgSendWithRetry(ctx context.Context, sendFunc func() error, retryCount, ret
 		}
 		err := sendFunc()
 		if err != nil {
+			botSendAttempts.WithLabelValues("telegram", "error").Inc()
 			log.Printf("failed to send message: %v in attempt %v", err, i)
 			if !waitForRetry(ctx, time.Duration(retryPause)*time.Second) {
 				return
 			}
 		} else {
+			botSendAttempts.WithLabelValues("telegram", "success").Inc()
 			break
 		}
 	}

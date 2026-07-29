@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"context"
 	"net/http"
 	"sync/atomic"
 
@@ -11,11 +12,32 @@ func Healthz(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func Readyz(isReady *atomic.Value) http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
+type ReadinessCheck func(context.Context) error
+
+func Readyz(isReady *atomic.Value, checks ...ReadinessCheck) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		if isReady == nil || !isReady.Load().(bool) {
 			http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
 			return
+		}
+		results := make(chan error, len(checks))
+		for _, check := range checks {
+			go func(check ReadinessCheck) {
+				results <- check(r.Context())
+			}(check)
+		}
+		for range checks {
+			select {
+			case err := <-results:
+				if err == nil {
+					continue
+				}
+				http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
+				return
+			case <-r.Context().Done():
+				http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
+				return
+			}
 		}
 		w.WriteHeader(http.StatusOK)
 	}

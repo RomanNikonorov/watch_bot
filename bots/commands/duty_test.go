@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"watch_bot/bots"
@@ -13,36 +14,17 @@ type mockDutyService struct {
 	err    error
 }
 
-func (m *mockDutyService) GetCurrentDuty() (*duty.DutyResult, error) {
+func (m *mockDutyService) GetCurrentDuty(context.Context) (*duty.DutyResult, error) {
 	return m.result, m.err
 }
 
 func TestDutyCommand_Description(t *testing.T) {
 	cmd := NewDutyCommand(DutyCommandConfig{
-		ConnectionStr: "",
-		MessagesChan:  nil,
-		SupportChatId: "",
+		MessagesChan: nil,
 	})
 	desc := cmd.Description()
 	if desc == "" {
 		t.Error("expected non-empty description")
-	}
-}
-
-func TestDutyCommand_Execute_NoConnection(t *testing.T) {
-	cmd := NewDutyCommand(DutyCommandConfig{
-		ConnectionStr: "invalid_connection_string",
-		MessagesChan:  nil,
-		SupportChatId: "",
-	})
-	_, err := cmd.Execute(bots.Command{
-		Name:   "duty",
-		ChatId: "123",
-		Params: map[string]string{},
-	})
-	// Should return error due to invalid connection
-	if err == nil {
-		t.Error("expected error for invalid connection string")
 	}
 }
 
@@ -54,7 +36,7 @@ func TestDutyCommand_Execute_SupportChatMessageContainsAtPrefix(t *testing.T) {
 		supportChatId: "support-123",
 	}
 
-	_, err := cmd.Execute(bots.Command{
+	_, err := cmd.Execute(context.Background(), bots.Command{
 		Name:   "duty",
 		ChatId: "caller-456",
 	})
@@ -93,7 +75,7 @@ func TestDutyCommand_Execute_NoSupportMessageOnSubsequentCalls(t *testing.T) {
 		supportChatId: "support-123",
 	}
 
-	_, err := cmd.Execute(bots.Command{
+	_, err := cmd.Execute(context.Background(), bots.Command{
 		Name:   "duty",
 		ChatId: "caller-456",
 	})
@@ -127,7 +109,7 @@ func TestDutyCommand_Execute_RejectsOutsideWorkingHours(t *testing.T) {
 		},
 	}
 
-	response, err := cmd.Execute(bots.Command{
+	response, err := cmd.Execute(context.Background(), bots.Command{
 		Name:   "duty",
 		ChatId: "caller-456",
 	})
@@ -153,7 +135,7 @@ func TestDutyCommand_Execute_AllowsDuringWorkingHours(t *testing.T) {
 		},
 	}
 
-	response, err := cmd.Execute(bots.Command{
+	response, err := cmd.Execute(context.Background(), bots.Command{
 		Name:   "duty",
 		ChatId: "caller-456",
 	})

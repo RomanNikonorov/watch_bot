@@ -3,6 +3,7 @@ package bots
 import (
 	"context"
 	"log"
+	"time"
 )
 
 func CreateBot(ctx context.Context, settings BotSettings) WatchBot {
@@ -20,7 +21,15 @@ func CreateBot(ctx context.Context, settings BotSettings) WatchBot {
 	default:
 		log.Fatal("unsupported bot type")
 	}
-	return bot.CreateBot(ctx, settings.CommandsChannel, settings.BotToken, settings.MessagesChannel, settings.RetryCount, settings.RetryPause)
+	return bot.CreateBot(
+		ctx,
+		settings.CommandsChannel,
+		settings.BotToken,
+		settings.MessagesChannel,
+		settings.RetryCount,
+		settings.RetryPause,
+		settings.APITimeout,
+	)
 }
 
 type BotSettings struct {
@@ -33,12 +42,13 @@ type BotSettings struct {
 	CommandsChannel chan Command
 	RetryCount      int
 	RetryPause      int
+	APITimeout      time.Duration
 }
 
 type Message struct {
 	ChatId    string
 	Text      string
-	ParseMode string // "HTML" or "MarkdownV2" for VK Teams
+	ParseMode string // Transport-specific parse mode, such as HTML.
 }
 
 type Command struct {

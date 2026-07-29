@@ -1,46 +1,48 @@
 package commands
 
 import (
+	"context"
 	"fmt"
-	"log"
 	"strings"
 	"watch_bot/bots"
+	"watch_bot/dao"
 	"watch_bot/duty"
-
-	botgolang "github.com/mail-ru-im/bot-golang"
 )
 
 type NextCommandConfig struct {
-	ConnectionStr      string
+	Store              *dao.Store
 	MessagesChan       chan bots.Message
 	SupportChatId      string
+	BotType            string
 	AllowedNextUserIds []string
 	IsWorkingNow       func() bool
 }
 
 type nextDutyServicer interface {
-	GetNextDuty() (*duty.DutyResult, error)
+	GetNextDuty(context.Context) (*duty.DutyResult, error)
 }
 
 type NextCommand struct {
 	dutyService        nextDutyServicer
 	messagesChan       chan bots.Message
 	supportChatId      string
+	botType            string
 	allowedNextUserIds map[string]struct{}
 	isWorkingNow       func() bool
 }
 
 func NewNextCommand(config NextCommandConfig) *NextCommand {
 	return &NextCommand{
-		dutyService:        duty.NewService(config.ConnectionStr),
+		dutyService:        duty.NewService(config.Store),
 		messagesChan:       config.MessagesChan,
 		supportChatId:      config.SupportChatId,
+		botType:            config.BotType,
 		allowedNextUserIds: newAllowedUserIds(config.AllowedNextUserIds),
 		isWorkingNow:       config.IsWorkingNow,
 	}
 }
 
-func (n *NextCommand) Execute(cmd bots.Command) (string, error) {
+func (n *NextCommand) Execute(ctx context.Context, cmd bots.Command) (string, error) {
 	if !n.isUserAllowed(cmd.UserId) {
 		return "You are not allowed to execute this command", nil
 	}
@@ -49,7 +51,7 @@ func (n *NextCommand) Execute(cmd bots.Command) (string, error) {
 		return "Duty can only be changed during working hours", nil
 	}
 
-	result, err := n.dutyService.GetNextDuty()
+	result, err := n.dutyService.GetNextDuty(ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to get next duty: %w", err)
 	}
@@ -58,25 +60,22 @@ func (n *NextCommand) Execute(cmd bots.Command) (string, error) {
 	}
 
 	if n.messagesChan != nil {
-		select {
-		case n.messagesChan <- bots.Message{
+		if err := bots.EnqueueMessage(ctx, n.messagesChan, bots.Message{
 			ChatId: result.DutyID,
 			Text:   "You are on duty today!",
-		}:
-		default:
-			log.Printf("Warning: failed to send notification to duty person %s: channel buffer full", result.DutyID)
+		}); err != nil {
+			return "", fmt.Errorf("failed to enqueue duty notification: %w", err)
 		}
 
 		if n.supportChatId != "" {
-			notificationText := fmt.Sprintf("Duty person changed.\n\nOn duty now: @[%s]", result.DutyID)
-			select {
-			case n.messagesChan <- bots.Message{
+			mention, parseMode := bots.FormatMention(n.botType, result.DutyID)
+			notificationText := fmt.Sprintf("Duty person changed.\n\nOn duty now: %s", mention)
+			if err := bots.EnqueueMessage(ctx, n.messagesChan, bots.Message{
 				ChatId:    n.supportChatId,
 				Text:      notificationText,
-				ParseMode: string(botgolang.ParseModeHTML),
-			}:
-			default:
-				log.Printf("Warning: failed to send notification to support chat %s: channel buffer full", n.supportChatId)
+				ParseMode: parseMode,
+			}); err != nil {
+				return "", fmt.Errorf("failed to enqueue support notification: %w", err)
 			}
 		}
 	}

@@ -11,6 +11,23 @@ on:
 jobs:
   test-and-build:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: watch_bot
+          POSTGRES_PASSWORD: watch_bot
+          POSTGRES_DB: watch_bot_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U watch_bot -d watch_bot_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      TEST_CONNECTION_STR: postgres://watch_bot:watch_bot@localhost:5432/watch_bot_test?sslmode=disable
 
     steps:
       - name: Checkout code
@@ -19,24 +36,31 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.23.5'
+          go-version-file: go.mod
+          cache: true
 
-      - name: Install dependencies
-        run: go mod download
+      - name: Run unit tests
+        run: make test
 
-      - name: Run tests
-        run: go test ./...
+      - name: Run static analysis
+        run: make vet
+
+      - name: Run race detector
+        run: make race
+
+      - name: Run PostgreSQL integration tests
+        run: make integration-test
 
       - name: Build application
-        run: go build -ldflags="-s -w" -o watch_bot .
+        run: make build
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: watch_bot
-          path: watch_bot
+          path: .bin/watch_bot
 
   docker:
     needs: test-and-build

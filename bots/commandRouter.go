@@ -9,7 +9,7 @@ import (
 
 // CommandHandler interface for command implementations
 type CommandHandler interface {
-	Execute(cmd Command) (string, error)
+	Execute(ctx context.Context, cmd Command) (string, error)
 	Description() string
 }
 
@@ -31,14 +31,14 @@ func NewChatRestrictedHandler(handler CommandHandler, allowedChatIds ...string) 
 	}
 }
 
-func (h *chatRestrictedHandler) Execute(cmd Command) (string, error) {
+func (h *chatRestrictedHandler) Execute(ctx context.Context, cmd Command) (string, error) {
 	if len(h.allowedChatIds) == 0 {
-		return h.handler.Execute(cmd)
+		return h.handler.Execute(ctx, cmd)
 	}
 	if _, ok := h.allowedChatIds[cmd.ChatId]; !ok {
 		return "This command is not allowed in this chat", nil
 	}
-	return h.handler.Execute(cmd)
+	return h.handler.Execute(ctx, cmd)
 }
 
 func (h *chatRestrictedHandler) Description() string {
@@ -72,12 +72,12 @@ func (r *CommandRouter) GetRegisteredCommands() map[string]string {
 }
 
 // Handle processes a command and returns response
-func (r *CommandRouter) Handle(cmd Command) (string, error) {
+func (r *CommandRouter) Handle(ctx context.Context, cmd Command) (string, error) {
 	handler, exists := r.handlers[cmd.Name]
 	if !exists {
 		return r.unknownCommandResponse(), nil
 	}
-	return handler.Execute(cmd)
+	return handler.Execute(ctx, cmd)
 }
 
 func (r *CommandRouter) unknownCommandResponse() string {
@@ -100,14 +100,17 @@ func (r *CommandRouter) Listen(ctx context.Context, commandChannel chan Command,
 			if !ok {
 				return
 			}
-			response, err := r.Handle(cmd)
+			response, err := r.Handle(ctx, cmd)
 			if err != nil {
 				log.Printf("Error handling command %s: %v", cmd.Name, err)
 				response = "An error occurred while executing the command"
 			}
-			messagesChannel <- Message{
+			if err := EnqueueMessage(ctx, messagesChannel, Message{
 				ChatId: cmd.ChatId,
 				Text:   response,
+			}); err != nil {
+				log.Printf("Failed to enqueue command response: %v", err)
+				return
 			}
 		}
 	}

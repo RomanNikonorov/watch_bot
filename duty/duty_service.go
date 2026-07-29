@@ -1,21 +1,25 @@
 package duty
 
 import (
+	"context"
 	"sort"
 	"time"
 
 	"watch_bot/dao"
+	"watch_bot/lib"
 )
 
 // Service handles duty-related business logic
 type Service struct {
-	connectionStr string
+	store *dao.Store
+	now   func() time.Time
 }
 
 // NewService creates a new duty service
-func NewService(connectionStr string) *Service {
+func NewService(store *dao.Store) *Service {
 	return &Service{
-		connectionStr: connectionStr,
+		store: store,
+		now:   time.Now,
 	}
 }
 
@@ -30,58 +34,59 @@ type DutyResult struct {
 // 1. Find record where last_duty_date = today -> return it
 // 2. If not found, find record with max last_duty_date and get next by duty_id alphabetically
 // 3. Update the found record with today's date
-func (s *Service) GetCurrentDuty() (*DutyResult, error) {
-	duties, err := dao.GetAllDuties(s.connectionStr)
+func (s *Service) GetCurrentDuty(ctx context.Context) (*DutyResult, error) {
+	currentDate := lib.StartOfDay(s.now())
+	var result *DutyResult
+
+	err := s.store.WithDutyRotation(ctx, func(duties []dao.Duty, rotation *dao.DutyRotation) error {
+		duty := FindCurrentDuty(duties, currentDate)
+		if duty == nil {
+			return nil
+		}
+
+		isNewAssignment := duty.LastDutyDate == nil || !isSameDay(*duty.LastDutyDate, currentDate)
+		if isNewAssignment {
+			if err := rotation.SetDutyDate(ctx, duty.ID, currentDate); err != nil {
+				return err
+			}
+		}
+
+		result = &DutyResult{
+			DutyID:          duty.DutyID,
+			IsNewAssignment: isNewAssignment,
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	currentDate := time.Now().Truncate(24 * time.Hour)
-	duty := FindCurrentDuty(duties, currentDate)
-	if duty == nil {
-		return nil, nil
-	}
-
-	// Check if this is a new assignment (duty was not yet assigned today)
-	isNewAssignment := duty.LastDutyDate == nil || !isSameDay(*duty.LastDutyDate, currentDate)
-
-	// Check if we need to update the database
-	if isNewAssignment {
-		err = dao.UpdateDutyDate(s.connectionStr, duty.ID, currentDate)
-		if err != nil {
-			return nil, err
-		}
-		duty.LastDutyDate = &currentDate
-	}
-
-	return &DutyResult{
-		DutyID:          duty.DutyID,
-		IsNewAssignment: isNewAssignment,
-	}, nil
+	return result, nil
 }
 
 // GetNextDuty forcefully moves today's duty to the next person in alphabetical rotation.
-func (s *Service) GetNextDuty() (*DutyResult, error) {
-	duties, err := dao.GetAllDuties(s.connectionStr)
+func (s *Service) GetNextDuty(ctx context.Context) (*DutyResult, error) {
+	currentDate := lib.StartOfDay(s.now())
+	var result *DutyResult
+
+	err := s.store.WithDutyRotation(ctx, func(duties []dao.Duty, rotation *dao.DutyRotation) error {
+		duty := FindNextDuty(duties, currentDate)
+		if duty == nil {
+			return nil
+		}
+		if err := rotation.ReassignDutyDate(ctx, duty.ID, currentDate); err != nil {
+			return err
+		}
+
+		result = &DutyResult{
+			DutyID:          duty.DutyID,
+			IsNewAssignment: true,
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	currentDate := time.Now().Truncate(24 * time.Hour)
-	duty := FindNextDuty(duties, currentDate)
-	if duty == nil {
-		return nil, nil
-	}
-
-	err = dao.ReassignDutyDate(s.connectionStr, duty.ID, currentDate)
-	if err != nil {
-		return nil, err
-	}
-
-	return &DutyResult{
-		DutyID:          duty.DutyID,
-		IsNewAssignment: true,
-	}, nil
+	return result, nil
 }
 
 // FindCurrentDuty finds the current duty person from a list of duties

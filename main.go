@@ -2,18 +2,17 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"sync/atomic"
 	"syscall"
 	"time"
 	"watch_bot/bots"
 	"watch_bot/bots/commands"
+	"watch_bot/config"
 	"watch_bot/dao"
 	"watch_bot/lib"
 	"watch_bot/working_calendar"
@@ -25,82 +24,93 @@ import (
 )
 
 func main() {
-	graylogAddr := os.Getenv("GRAYLOG_ADDR")
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("invalid configuration: %v", err)
+	}
+
 	// graylog
-	if graylogAddr != "" {
-		gelfWriter, err := gelf.NewWriter(graylogAddr)
+	if cfg.GraylogAddress != "" {
+		gelfWriter, err := gelf.NewWriter(cfg.GraylogAddress)
 		if err != nil {
 			log.Fatalf("gelf.NewWriter: %s", err)
 		}
 		// log to both stderr and graylog
 		log.SetOutput(io.MultiWriter(os.Stderr, gelfWriter))
-		log.Printf("logging to stderr & graylog@'%s'", graylogAddr)
+		log.Printf("logging to stderr & graylog@'%s'", cfg.GraylogAddress)
 	}
-
-	botToken := os.Getenv("BOT_TOKEN")
-	botApiUrl := os.Getenv("BOT_API_URL")
-	mainChatId := os.Getenv("MAIN_CHAT_ID")
-	supportChatId := os.Getenv("SUPPORT_CHAT_ID")
-	nextAllowedUserIds := parseSemicolonSeparatedList(os.Getenv("NEXT_ALLOWED_USER_IDS"))
-	botType := os.Getenv("BOT_TYPE")
-
-	// retry count for bot
-	retryCount := lib.GetEnvVariableValueWithDefault("RETRY_COUNT", "3")
-	// retry pause for bot
-	retryPause := lib.GetEnvVariableValueWithDefault("RETRY_PAUSE", "5")
 
 	botMessagesChannel := make(chan bots.Message, 100)
 	botCommandsChannel := make(chan bots.Command)
 
 	settings := bots.BotSettings{
-		BotToken:        botToken,
-		BotApiUrl:       botApiUrl,
-		MainChatId:      mainChatId,
-		SupportChatId:   supportChatId,
-		BotType:         botType,
+		BotToken:        cfg.BotToken,
+		BotApiUrl:       cfg.BotAPIURL,
+		MainChatId:      cfg.MainChatID,
+		SupportChatId:   cfg.SupportChatID,
+		BotType:         cfg.BotType,
 		MessagesChannel: botMessagesChannel,
 		CommandsChannel: botCommandsChannel,
-		RetryCount:      retryCount,
-		RetryPause:      retryPause,
-	}
-
-	connectionStr := os.Getenv("CONNECTION_STR")
-	if err := dao.ValidateConnection(connectionStr); err != nil {
-		log.Fatalf("database validation failed: %v", err)
+		RetryCount:      cfg.RetryCount,
+		RetryPause:      cfg.RetryPauseSeconds,
+		APITimeout:      cfg.BotAPITimeout,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	bots.CreateBot(ctx, settings)
+	dbCtx, dbCancel := context.WithTimeout(ctx, cfg.DatabaseTimeout)
+	store, err := dao.Open(dbCtx, cfg.ConnectionString)
+	dbCancel()
+	if err != nil {
+		log.Fatalf("database validation failed: %v", err)
+	}
+	defer func() {
+		if err := store.Close(); err != nil {
+			log.Printf("database close error: %v", err)
+		}
+	}()
+
+	bot := bots.CreateBot(ctx, settings)
 
 	log.Printf("Current time: %v", time.Now().Format("02.01.2006 MST"))
 	workingCalendar := working_calendar.FillWorkingTime()
-	unusualDays, err := dao.GetUnusualDays(connectionStr, time.Now())
-	for _, day := range unusualDays {
-		fmt.Printf("Unusual day: %s\n", day.Format("2006-01-02"))
-	}
+	calendarCtx, calendarCancel := context.WithTimeout(ctx, cfg.DatabaseTimeout)
+	unusualDays, err := store.GetUnusualDays(calendarCtx, lib.StartOfDay(time.Now()))
+	calendarCancel()
 	if err != nil {
-		log.Printf("Error getting unusual days: %v", err)
+		log.Fatalf("failed to load unusual days: %v", err)
 	}
+	for _, day := range unusualDays {
+		log.Printf("Unusual day: %s", day.Format("2006-01-02"))
+	}
+	unusualDaysValue := &atomic.Value{}
+	unusualDaysValue.Store(unusualDays)
+	go refreshUnusualDays(ctx, store, unusualDaysValue, cfg.UnusualDaysRefreshInterval, cfg.DatabaseTimeout)
 
 	// Initialize command router
 	commandRouter := bots.NewCommandRouter()
 	isWorkingNow := func() bool {
-		return working_calendar.IsWorkingTime(workingCalendar, time.Now(), unusualDays)
+		return working_calendar.IsWorkingTime(
+			workingCalendar,
+			time.Now(),
+			unusualDaysValue.Load().([]time.Time),
+		)
 	}
 	commandRouter.Register("duty", bots.NewChatRestrictedHandler(commands.NewDutyCommand(commands.DutyCommandConfig{
-		ConnectionStr: connectionStr,
+		Store:         store,
 		MessagesChan:  botMessagesChannel,
 		SupportChatId: settings.SupportChatId,
+		BotType:       settings.BotType,
 		IsWorkingNow:  isWorkingNow,
 	}), settings.MainChatId))
 	if settings.SupportChatId != "" {
 		commandRouter.Register("next", bots.NewChatRestrictedHandler(commands.NewNextCommand(commands.NextCommandConfig{
-			ConnectionStr:      connectionStr,
+			Store:              store,
 			MessagesChan:       botMessagesChannel,
 			SupportChatId:      settings.SupportChatId,
-			AllowedNextUserIds: nextAllowedUserIds,
+			BotType:            settings.BotType,
+			AllowedNextUserIds: cfg.NextAllowedUserIDs,
 			IsWorkingNow:       isWorkingNow,
 		}), settings.SupportChatId))
 	}
@@ -114,12 +124,24 @@ func main() {
 	httpRouter.Use(middleware.Recoverer)
 
 	httpRouter.HandleFunc("/health", lib.Healthz)
-	httpRouter.HandleFunc("/ready", lib.Readyz(isReady))
+	httpRouter.HandleFunc("/ready", lib.Readyz(isReady, func(ctx context.Context) error {
+		pingCtx, pingCancel := context.WithTimeout(ctx, cfg.DatabaseTimeout)
+		defer pingCancel()
+		return store.Ping(pingCtx)
+	}, func(ctx context.Context) error {
+		botCtx, botCancel := context.WithTimeout(ctx, cfg.BotAPITimeout)
+		defer botCancel()
+		return bot.Ready(botCtx)
+	}))
 	httpRouter.Handle("/metrics", promhttp.Handler())
 
 	httpServer := &http.Server{
-		Addr:    ":9000",
-		Handler: httpRouter,
+		Addr:              ":9000",
+		Handler:           httpRouter,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	go func() {
@@ -147,6 +169,34 @@ func main() {
 	shutdownHTTPServer(httpServer, isReady)
 }
 
+func refreshUnusualDays(
+	ctx context.Context,
+	store *dao.Store,
+	target *atomic.Value,
+	interval time.Duration,
+	timeout time.Duration,
+) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case now := <-ticker.C:
+			queryCtx, cancel := context.WithTimeout(ctx, timeout)
+			days, err := store.GetUnusualDays(queryCtx, lib.StartOfDay(now))
+			cancel()
+			if err != nil {
+				log.Printf("failed to refresh unusual days: %v", err)
+				continue
+			}
+			target.Store(days)
+			log.Printf("refreshed unusual days: %d entries", len(days))
+		}
+	}
+}
+
 func shutdownHTTPServer(httpServer *http.Server, isReady *atomic.Value) {
 	isReady.Store(false)
 
@@ -156,15 +206,4 @@ func shutdownHTTPServer(httpServer *http.Server, isReady *atomic.Value) {
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		log.Printf("HTTP server shutdown error: %v", err)
 	}
-}
-
-func parseSemicolonSeparatedList(value string) []string {
-	var result []string
-	for _, item := range strings.Split(value, ";") {
-		item = strings.TrimSpace(item)
-		if item != "" {
-			result = append(result, item)
-		}
-	}
-	return result
 }

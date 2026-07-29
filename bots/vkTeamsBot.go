@@ -3,6 +3,7 @@ package bots
 import (
 	"context"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/mail-ru-im/bot-golang"
@@ -10,6 +11,7 @@ import (
 
 type VkTeamsBot struct {
 	Bot           *botgolang.Bot
+	ReadyBot      *botgolang.Bot
 	BotApiUrl     string
 	MainChatId    string
 	SupportChatId string
@@ -44,15 +46,39 @@ func (b VkTeamsBot) ListenIncomingMessages(ctx context.Context, messages chan Co
 	}
 }
 
-func (b VkTeamsBot) CreateBot(ctx context.Context, commandChannel chan Command, botToken string, messagesChannel chan Message, retryCount int, retryPause int) WatchBot {
+func (b VkTeamsBot) CreateBot(
+	ctx context.Context,
+	commandChannel chan Command,
+	botToken string,
+	messagesChannel chan Message,
+	retryCount int,
+	retryPause int,
+	apiTimeout time.Duration,
+) WatchBot {
 	newBot, err := botgolang.NewBot(botToken, botgolang.BotApiURL(b.BotApiUrl))
 	if err != nil {
 		log.Fatal("Bot is not created: ", err)
 	}
+	readyBot, err := botgolang.NewBot(
+		botToken,
+		botgolang.BotApiURL(b.BotApiUrl),
+		botgolang.BotHTTPClient(http.Client{Timeout: apiTimeout}),
+	)
+	if err != nil {
+		log.Fatal("Bot readiness client is not created: ", err)
+	}
 	b.Bot = newBot
+	b.ReadyBot = readyBot
 	go b.ListenMessagesToSend(ctx, messagesChannel, retryCount, retryPause)
 	go b.ListenIncomingMessages(ctx, commandChannel)
 	return b
+}
+
+func (b VkTeamsBot) Ready(ctx context.Context) error {
+	return runReadinessCheck(ctx, func() error {
+		_, err := b.ReadyBot.GetInfo()
+		return err
+	})
 }
 
 func (b VkTeamsBot) ListenMessagesToSend(ctx context.Context, messagesChannel chan Message, retryCount int, retryPause int) {
@@ -82,11 +108,13 @@ func vkSendWithRetry(ctx context.Context, sendFunc func() error, retryCount int,
 		}
 		err := sendFunc()
 		if err != nil {
+			botSendAttempts.WithLabelValues("vk", "error").Inc()
 			log.Printf("failed to send message: %v in attempt %v", err, i)
 			if !waitForRetry(ctx, time.Duration(retryPause)*time.Second) {
 				return
 			}
 		} else {
+			botSendAttempts.WithLabelValues("vk", "success").Inc()
 			break
 		}
 	}

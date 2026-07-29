@@ -1,32 +1,36 @@
 package lib
 
 import (
-	"os"
 	"testing"
+	"time"
 )
 
-func TestGetEnvVariableValueWithDefault(t *testing.T) {
-	tests := []struct {
-		envVariableName string
-		envValue        string
-		defaultValue    string
-		expected        int
-	}{
-		{"TEST_ENV_VAR", "42", "10", 42},
-		{"TEST_ENV_VAR", "", "10", 10},
-		//{"TEST_ENV_VAR", "invalid", "10", 10}, // This will cause a log.Fatal, so handle it accordingly
+func TestStartOfDayUsesCalendarDateInProvidedLocation(t *testing.T) {
+	location := time.FixedZone("Asia/Novosibirsk", 7*60*60)
+	value := time.Date(2026, time.July, 29, 3, 15, 42, 123, location)
+
+	result := StartOfDay(value)
+	expected := time.Date(2026, time.July, 29, 0, 0, 0, 0, location)
+
+	if !result.Equal(expected) {
+		t.Fatalf("expected %v, got %v", expected, result)
 	}
+	if result.Location() != location {
+		t.Fatalf("expected location %v, got %v", location, result.Location())
+	}
+}
 
-	for _, tt := range tests {
-		if tt.envValue != "" {
-			os.Setenv(tt.envVariableName, tt.envValue)
-		} else {
-			os.Unsetenv(tt.envVariableName)
-		}
+func TestStartOfDayDoesNotUseAbsoluteDurationBoundary(t *testing.T) {
+	location := time.FixedZone("Asia/Novosibirsk", 7*60*60)
+	value := time.Date(2026, time.July, 29, 3, 0, 0, 0, location)
 
-		result := GetEnvVariableValueWithDefault(tt.envVariableName, tt.defaultValue)
-		if result != tt.expected {
-			t.Errorf("GetEnvVariableValueWithDefault(%s, %s) = %d; want %d", tt.envVariableName, tt.defaultValue, result, tt.expected)
-		}
+	result := StartOfDay(value)
+	truncated := value.Truncate(24 * time.Hour)
+
+	if result.Day() != 29 {
+		t.Fatalf("expected local calendar day 29, got %d", result.Day())
+	}
+	if result.Equal(truncated) {
+		t.Fatalf("expected local midnight %v to differ from duration boundary %v", result, truncated)
 	}
 }

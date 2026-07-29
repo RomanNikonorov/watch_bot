@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"watch_bot/bots"
@@ -12,7 +13,7 @@ type mockNextDutyService struct {
 	err    error
 }
 
-func (m *mockNextDutyService) GetNextDuty() (*duty.DutyResult, error) {
+func (m *mockNextDutyService) GetNextDuty(context.Context) (*duty.DutyResult, error) {
 	return m.result, m.err
 }
 
@@ -28,7 +29,7 @@ func TestNextCommand_Execute_SendsDutyAndSupportMessages(t *testing.T) {
 		},
 	}
 
-	response, err := cmd.Execute(bots.Command{
+	response, err := cmd.Execute(context.Background(), bots.Command{
 		Name:   "next",
 		ChatId: "support-123",
 		UserId: "user-1",
@@ -77,7 +78,7 @@ func TestNextCommand_Execute_NoNextDuty(t *testing.T) {
 		},
 	}
 
-	response, err := cmd.Execute(bots.Command{Name: "next", ChatId: "support-123", UserId: "user-1"})
+	response, err := cmd.Execute(context.Background(), bots.Command{Name: "next", ChatId: "support-123", UserId: "user-1"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -97,7 +98,7 @@ func TestNextCommand_Execute_RejectsOutsideWorkingHours(t *testing.T) {
 		},
 	}
 
-	response, err := cmd.Execute(bots.Command{Name: "next", ChatId: "support-123", UserId: "user-1"})
+	response, err := cmd.Execute(context.Background(), bots.Command{Name: "next", ChatId: "support-123", UserId: "user-1"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -120,7 +121,7 @@ func TestNextCommand_Execute_RejectsUnauthorizedUser(t *testing.T) {
 		},
 	}
 
-	response, err := cmd.Execute(bots.Command{Name: "next", ChatId: "support-123", UserId: "user-2"})
+	response, err := cmd.Execute(context.Background(), bots.Command{Name: "next", ChatId: "support-123", UserId: "user-2"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -140,7 +141,7 @@ func TestNextCommand_Execute_RejectsWhenAllowedUsersEmpty(t *testing.T) {
 		},
 	}
 
-	response, err := cmd.Execute(bots.Command{Name: "next", ChatId: "support-123", UserId: "user-1"})
+	response, err := cmd.Execute(context.Background(), bots.Command{Name: "next", ChatId: "support-123", UserId: "user-1"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
